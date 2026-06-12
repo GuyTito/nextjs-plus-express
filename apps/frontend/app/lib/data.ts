@@ -1,6 +1,6 @@
-import { Revenue } from "@shared/types";
+import { LatestInvoiceRaw, Revenue } from "@shared/types";
 
-const API_URL = process.env.API_URL || "http://localhost:4000";
+const API_URL = process.env.API_URL;
 
 export async function fetchRevenue() {
   try {
@@ -19,7 +19,19 @@ export async function fetchRevenue() {
 
     return data;
   } catch (error) {
-    console.error("Database Error:", error);
+    console.error("Fetch Error:", error);
     throw new Error("Failed to fetch revenue data.");
+  }
+}
+
+export async function fetchLatestInvoices() {
+  try {
+    const data: LatestInvoiceRaw[] = await fetch(
+      `${API_URL}/invoices/latest`,
+    ).then((res) => res.json());
+    return data;
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    throw new Error("Failed to fetch the latest invoices.");
   }
 }

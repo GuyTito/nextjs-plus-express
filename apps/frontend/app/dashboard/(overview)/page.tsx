@@ -1,5 +1,5 @@
 // import CardWrapper, { Card } from "@/app/ui/dashboard/cards";
-// import LatestInvoices from "@/app/ui/dashboard/latest-invoices";
+import LatestInvoices from "@/app/ui/dashboard/latest-invoices";
 import { lusitana } from "@/app/ui/fonts";
 import { Suspense } from "react";
 import {
@@ -29,7 +29,7 @@ export default async function Page() {
           <RevenueChart />
         </Suspense>
         <Suspense fallback={<LatestInvoicesSkeleton />}>
-          {/* <LatestInvoices /> */}
+          <LatestInvoices />
         </Suspense>
       </div>
     </main>
