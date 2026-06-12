@@ -35,3 +35,15 @@ export async function fetchLatestInvoices() {
     throw new Error("Failed to fetch the latest invoices.");
   }
 }
+
+export async function fetchCardData() {
+  try {
+    const data = await fetch(`${API_URL}/invoices/card-data`).then((res) =>
+      res.json(),
+    );
+    return data;
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    throw new Error("Failed to fetch card data.");
+  }
+}
