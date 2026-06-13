@@ -1,13 +1,13 @@
 # Next.js Dashboard + Express Monorepo
 
-A full-stack dashboard application built as a pnpm Turborepo monorepo, sharing TypeScript types between a Next.js frontend and an Express backend.
+This is a pnpm Turborepo monorepo with a Next.js frontend, an Express backend, and a small shared package for code used by both apps.
 
 ## Prerequisites
 
-- Node.js ≥ 18.17
-- pnpm 9.12.0 (specified via `packageManager` field)
+- Node.js 18 or newer
+- pnpm 11.x
 
-## Installation
+## Install
 
 ```bash
 pnpm install
@@ -15,59 +15,76 @@ pnpm install
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start all apps in development mode (via Turborepo) |
-| `pnpm build` | Build all packages and apps, respecting dependency order |
-| `pnpm lint` | Lint all workspaces |
-| `pnpm check-types` | Run TypeScript type checking across all workspaces |
-| `pnpm format` | Format code with Prettier |
+| Command            | Description                                        |
+| ------------------ | -------------------------------------------------- |
+| `pnpm dev`         | Start the frontend and backend in development mode |
+| `pnpm build`       | Build all workspace packages and apps              |
+| `pnpm lint`        | Lint all workspaces                                |
+| `pnpm check-types` | Type-check all workspaces                          |
+| `pnpm format`      | Format Markdown and TypeScript files with Prettier |
 
 ## Project Structure
 
 ```
 .
 ├── apps/
-│   ├── frontend/          # Next.js 16 + React 19 dashboard
-│   └── backend/           # Express.js API server
-│
+│   ├── frontend/          # Next.js 16 dashboard app
+│   └── backend/           # Express API server
 ├── packages/
-│   └── shared/            # Shared TypeScript types and interfaces
-│
-├── package.json           # Root workspace config
+│   └── shared/            # Shared helpers, types, and other reusable code
+├── package.json           # Root workspace scripts
 ├── pnpm-workspace.yaml    # Workspace package globs
 └── turbo.json             # Turborepo pipeline configuration
 ```
 
-### Workspaces
+## Workspace Packages
 
-| Package | Path | Purpose |
-|---------|------|---------|
-| `frontend` | `apps/frontend` | Next.js web application |
-| `backend` | `apps/backend` | Express REST API server |
-| `shared` | `packages/shared` | Common TypeScript types (e.g. `User`) |
+| Package    | Path              | Purpose                          |
+| ---------- | ----------------- | -------------------------------- |
+| `frontend` | `apps/frontend`   | Next.js app for the dashboard UI |
+| `backend`  | `apps/backend`    | Express API for data and routes  |
+| `shared`   | `packages/shared` | Shared code used by both apps    |
 
-## Mono-repo Tooling
+## How Shared Code Works
 
-- **pnpm** manages dependencies and workspace linking
-- **Turborepo** orchestrates tasks (`dev`, `build`, `lint`, `check-types`) across workspaces with caching
-- **TypeScript project references** ensure `shared` builds before apps that depend on it
+The `shared` package is the single home for code that belongs in both apps. It is source-first, so you edit the files in `packages/shared/src` directly and import them from `shared`.
+
+For example:
+
+```ts
+import { formatCurrency, Revenue } from "shared";
+```
+
+## Adding New Shared Code
+
+1. Add the new file under `packages/shared/src`.
+2. Export it from `packages/shared/src/index.ts` if you want to import it from `shared`.
+3. Import it in the frontend or backend with `from "shared"`.
+
+Example:
+
+```ts
+// packages/shared/src/formatDate.ts
+export const formatDate = (date: string) => new Date(date).toISOString();
+```
+
+```ts
+// packages/shared/src/index.ts
+export * from "./types";
+export * from "./helpers";
+export * from "./formatDate";
+```
+
+```ts
+import { formatDate } from "shared";
+```
+
+If a file is only used by one app, keep it inside that app instead of moving it into shared.
 
 ## Development
 
 ```bash
-# Start frontend (Next.js) and backend (Express) together
 pnpm dev
-
-# Type-check everything
 pnpm check-types
-
-# Lint everything
 pnpm lint
 ```
-
-## Notes
-
-- The `shared` package defines source-of-truth types consumed by both frontend and backend
-- Frontend uses `tsconfig.json` `references` to resolve `shared` types
-- Backend depends on `shared` via `workspace:*` protocol in its `package.json`

@@ -1,4 +1,4 @@
-import { InvoicesTable, LatestInvoiceRaw, Revenue } from "@shared/types";
+import { InvoicesTable, LatestInvoiceRaw, Revenue } from "shared";
 
 const API_URL = process.env.API_URL;
 

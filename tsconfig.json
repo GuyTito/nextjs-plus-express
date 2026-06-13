@@ -1,15 +1,6 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
-    "paths": {
-      "@shared/*": ["packages/shared/src/*"]
-    }
+    "baseUrl": "."
   },
-  "files": [],
-  "references": [
-    { "path": "packages/shared" },
-    { "path": "apps/frontend" },
-    { "path": "apps/backend" }
-  ]
+  "files": []
 }

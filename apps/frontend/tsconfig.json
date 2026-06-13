@@ -14,12 +14,10 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "ignoreDeprecations": "6.0",
     "plugins": [{ "name": "next" }],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@shared/*": ["../../packages/shared/src/*"]
+      "@/*": ["./*"]
     }
   },
   "include": [
@@ -30,6 +28,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"],
-  "references": [{ "path": "../../packages/shared" }]
+  "exclude": ["node_modules"]
 }

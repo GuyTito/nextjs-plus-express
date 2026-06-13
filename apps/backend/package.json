@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node-dev src/server.ts"
+    "dev": "ts-node-dev --watch ../../packages/shared/src src/server.ts",
+    "check-types": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

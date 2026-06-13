@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import { sql } from "../lib/db";
-import { InvoicesTable, LatestInvoiceRaw } from "@shared/types";
-import { formatCurrency } from "../lib/utils";
+import { InvoicesTable, LatestInvoiceRaw, formatCurrency } from "shared";
 
 export async function fetchLatestInvoices(req: Request, res: Response) {
   try {
