@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { sql } from "../lib/db";
-import { Revenue } from "shared";
+import { Revenue } from "@shared/types";
 
 export async function fetchRevenue(req: Request, res: Response) {
   try {
