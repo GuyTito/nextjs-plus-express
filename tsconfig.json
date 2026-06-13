@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": "."
-  },
-  "files": []
+    "ignoreDeprecations": "5.0"
+  }
 }
