@@ -1,4 +1,4 @@
-import { InvoicesTable, LatestInvoiceRaw, Revenue } from "shared";
+import type { InvoicesTable, LatestInvoiceRaw, Revenue } from "shared";
 
 const API_URL = process.env.API_URL;
 
@@ -54,7 +54,7 @@ export async function fetchFilteredInvoices(
 ) {
   try {
     const data: InvoicesTable[] = await fetch(
-      `${API_URL}/invoices/filtered?query=${query}&currentPage=${currentPage}`,
+      `${API_URL}/invoices?query=${query}&currentPage=${currentPage}`,
     ).then((res) => res.json());
     return data;
   } catch (error) {

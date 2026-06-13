@@ -9,7 +9,7 @@ import {
 const router: express.Router = express.Router();
 router.get("/latest", fetchLatestInvoices);
 router.get("/card-data", fetchCardData);
-router.get("/filtered", fetchFilteredInvoices);
 router.get("/pages", fetchInvoicesPages);
+router.get("/", fetchFilteredInvoices);
 
 export default router;
