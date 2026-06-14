@@ -1,5 +1,6 @@
 import type {
   CustomerField,
+  InvoiceForm,
   InvoicesTable,
   LatestInvoiceRaw,
   Revenue,
@@ -89,5 +90,17 @@ export async function fetchCustomers() {
   } catch (err) {
     console.error("Fetch Error:", err);
     throw new Error("Failed to fetch all customers.");
+  }
+}
+
+export async function fetchInvoiceById(id: string) {
+  try {
+    const data: InvoiceForm = await fetch(`${API_URL}/invoices/${id}`).then(
+      (res) => res.json(),
+    );
+    return data;
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    throw new Error("Failed to fetch invoice.");
   }
 }

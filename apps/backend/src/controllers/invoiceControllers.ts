@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { sql } from "../lib/db";
 import {
+  InvoiceForm,
   type InvoicesTable,
   type LatestInvoiceRaw,
   formatCurrency,
@@ -98,6 +99,32 @@ export async function fetchFilteredInvoices(req: Request, res: Response) {
   }
 }
 
+export async function fetchInvoiceById(req: Request, res: Response) {
+  const id = req.params.id;
+  try {
+    const data = await sql<InvoiceForm[]>`
+      SELECT
+        invoices.id,
+        invoices.customer_id,
+        invoices.amount,
+        invoices.status
+      FROM invoices
+      WHERE invoices.id = ${id};
+    `;
+
+    const invoice = data.map((invoice) => ({
+      ...invoice,
+      // Convert amount from cents to dollars
+      amount: invoice.amount / 100,
+    }));
+
+    return res.json(invoice[0]);
+  } catch (error) {
+    console.error("Database Error:", error);
+    throw new Error("Failed to fetch invoice.");
+  }
+}
+
 export async function fetchInvoicesPages(req: Request, res: Response) {
   const query = req.query.query as string;
 
@@ -152,5 +179,44 @@ export async function createInvoice(req: Request, res: Response) {
     return res
       .status(400)
       .json({ error: "Database Error: Failed to Create Invoice." });
+  }
+}
+
+export async function updateInvoice(req: Request, res: Response) {
+  const id = req.params.id;
+  const { customerId, amount, status } = req.body;
+  const amountInCents = amount * 100;
+
+  //check if invoice exists
+  const invoice = await sql`
+    SELECT id FROM invoices WHERE id = ${id}
+  `;
+
+  if (!invoice.length) {
+    return res.status(404).json({ error: "Invoice not found." });
+  }
+
+  //check if customerId is valid
+  const customer = await sql`
+    SELECT id FROM customers WHERE id = ${customerId}
+  `;
+
+  if (!customer.length) {
+    return res.status(400).json({ error: "Invalid customer ID." });
+  }
+
+  try {
+    const data = await sql`
+        UPDATE invoices
+        SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+        WHERE id = ${id}
+      `;
+    return res.status(201).json({ data, message: "Invoice Updated" });
+  } catch (error) {
+    // We'll also log the error to the console for now
+    console.error(error);
+    return res
+      .status(400)
+      .json({ error: "Database Error: Failed to Update Invoice." });
   }
 }

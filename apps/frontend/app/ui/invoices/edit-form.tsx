@@ -1,0 +1,160 @@
+"use client";
+
+import type { CustomerField, InvoiceForm } from "shared";
+import {
+  CheckIcon,
+  ClockIcon,
+  CurrencyDollarIcon,
+  UserCircleIcon,
+} from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { Button } from "@/app/ui/button";
+import { State, updateInvoice } from "@/app/lib/actions";
+import { useActionState } from "react";
+
+type Props = Readonly<{
+  invoice: InvoiceForm;
+  customers: CustomerField[];
+}>;
+export default function EditInvoiceForm({ invoice, customers }: Props) {
+  const updateInvoiceWithId = updateInvoice.bind(null, invoice.id);
+  const initialState: State = { message: null, errors: {} };
+  const [state, formAction] = useActionState(updateInvoiceWithId, initialState);
+
+  return (
+    // <form action={(formData) => updateInvoice(invoice.id, formData)}>
+    <form action={formAction}>
+      <div className="rounded-md bg-gray-50 p-4 md:p-6">
+        {/* Customer Name */}
+        <div className="mb-4">
+          <label htmlFor="customer" className="mb-2 block text-sm font-medium">
+            Choose customer
+          </label>
+          <div className="relative">
+            <select
+              id="customer"
+              name="customerId"
+              className="peer block w-full cursor-pointer rounded-md border border-gray-200 py-2 pl-10 text-sm outline-2 placeholder:text-gray-500"
+              defaultValue={invoice.customer_id}
+            >
+              <option value="" disabled>
+                Select a customer
+              </option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
+            <UserCircleIcon className="pointer-events-none absolute left-3 top-1/2 size-4.5 -translate-y-1/2 text-gray-500" />
+          </div>
+          {state.errors?.customerId ? (
+            <div id="customer-error" aria-live="polite" aria-atomic="true">
+              <p className="mt-2 text-sm text-red-500">
+                {state.errors.customerId.map((error: string) => (
+                  <p key={error}>{error}</p>
+                ))}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Invoice Amount */}
+        <div className="mb-4">
+          <label htmlFor="amount" className="mb-2 block text-sm font-medium">
+            Choose an amount
+          </label>
+          <div className="relative mt-2 rounded-md">
+            <div className="relative">
+              <input
+                id="amount"
+                name="amount"
+                type="number"
+                step="0.01"
+                defaultValue={invoice.amount}
+                placeholder="Enter USD amount"
+                className="peer block w-full rounded-md border border-gray-200 py-2 pl-10 text-sm outline-2 placeholder:text-gray-500"
+              />
+              <CurrencyDollarIcon className="pointer-events-none absolute left-3 top-1/2 size-4.5 -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
+            </div>
+            {state.errors?.amount ? (
+              <div id="amount-error" aria-live="polite" aria-atomic="true">
+                <p className="mt-2 text-sm text-red-500">
+                  {state.errors.amount.map((error: string) => (
+                    <p key={error}>{error}</p>
+                  ))}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Invoice Status */}
+        <fieldset>
+          <legend className="mb-2 block text-sm font-medium">
+            Set the invoice status
+          </legend>
+          <div className="rounded-md border border-gray-200 bg-white px-3.5 py-3">
+            <div className="flex gap-4">
+              <div className="flex items-center">
+                <input
+                  id="pending"
+                  name="status"
+                  type="radio"
+                  value="pending"
+                  defaultChecked={invoice.status === "pending"}
+                  className="h-4 w-4 cursor-pointer border-gray-300 bg-gray-100 text-gray-600 focus:ring-2"
+                />
+                <label
+                  htmlFor="pending"
+                  className="ml-2 flex cursor-pointer items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600"
+                >
+                  Pending <ClockIcon className="h-4 w-4" />
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  id="paid"
+                  name="status"
+                  type="radio"
+                  value="paid"
+                  defaultChecked={invoice.status === "paid"}
+                  className="h-4 w-4 cursor-pointer border-gray-300 bg-gray-100 text-gray-600 focus:ring-2"
+                />
+                <label
+                  htmlFor="paid"
+                  className="ml-2 flex cursor-pointer items-center gap-1.5 rounded-full bg-green-500 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Paid <CheckIcon className="h-4 w-4" />
+                </label>
+              </div>
+            </div>
+          </div>
+          {state.errors?.status ? (
+            <div id="status-error" aria-live="polite" aria-atomic="true">
+              <p className="mt-2 text-sm text-red-500">
+                {state.errors.status.map((error: string) => (
+                  <p key={error}>{error}</p>
+                ))}
+              </p>
+            </div>
+          ) : null}
+        </fieldset>
+        <div id="form-error" aria-live="polite" aria-atomic="true">
+          {state.message && (
+            <p className="mt-2 text-sm text-red-500">{state.message}</p>
+          )}
+        </div>
+      </div>
+      <div className="mt-6 flex justify-end gap-4">
+        <Link
+          href="/dashboard/invoices"
+          className="flex h-10 items-center rounded-lg bg-gray-100 px-4 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
+        >
+          Cancel
+        </Link>
+        <Button type="submit">Edit Invoice</Button>
+      </div>
+    </form>
+  );
+}
