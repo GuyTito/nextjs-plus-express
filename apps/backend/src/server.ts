@@ -4,6 +4,7 @@ import express, { type Response, type Request } from "express";
 import cors from "cors";
 import revenueRoutes from "./routes/revenueRoutes";
 import invoiceRoutes from "./routes/invoiceRoutes";
+import customerRoutes from "./routes/customerRoutes";
 
 const app = express();
 const port = process.env.SERVER_PORT;
@@ -16,7 +17,7 @@ app.use(express.urlencoded({ extended: true })); // handles forms data from brow
 // app.use("/api/auth", authRoutes);
 app.use("/api/revenue", revenueRoutes);
 app.use("/api/invoices", invoiceRoutes);
-// app.use("/api/customers", customerRoutes);
+app.use("/api/customers", customerRoutes);
 
 app.get("/api/hello", (req: Request, res: Response) => {
   res.json({ message: "Hello World! heyyy" });

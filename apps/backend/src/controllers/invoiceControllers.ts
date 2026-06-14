@@ -120,3 +120,37 @@ export async function fetchInvoicesPages(req: Request, res: Response) {
     throw new Error("Failed to fetch total number of invoices.");
   }
 }
+
+export async function createInvoice(req: Request, res: Response) {
+  const { customerId, amount, status } = req.body;
+
+  //good practice to store monetary values in cents in your database to eliminate JavaScript floating-point errors and ensure greater accuracy.
+  const amountInCents = amount * 100;
+
+  const date = new Date().toISOString().split("T")[0];
+
+  // check if customerId is valid
+  const customer = await sql`
+    SELECT id FROM customers WHERE id = ${customerId}
+  `;
+
+  if (!customer.length) {
+    return res.status(400).json({ error: "Invalid customer ID." });
+  }
+
+  try {
+    const data = await sql`
+      INSERT INTO invoices (customer_id, amount, status, date)
+      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+      RETURNING *
+    `;
+
+    return res.status(201).json({ data, message: "Invoice Created" });
+  } catch (error) {
+    // We'll also log the error to the console for now
+    console.error(error);
+    return res
+      .status(400)
+      .json({ error: "Database Error: Failed to Create Invoice." });
+  }
+}

@@ -12,5 +12,8 @@
   },
   "scripts": {
     "check-types": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }

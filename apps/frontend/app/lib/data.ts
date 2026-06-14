@@ -1,4 +1,9 @@
-import type { InvoicesTable, LatestInvoiceRaw, Revenue } from "shared";
+import type {
+  CustomerField,
+  InvoicesTable,
+  LatestInvoiceRaw,
+  Revenue,
+} from "shared";
 
 const API_URL = process.env.API_URL;
 
@@ -72,5 +77,17 @@ export async function fetchInvoicesPages(query: string) {
   } catch (error) {
     console.error("Fetch Error:", error);
     throw new Error("Failed to fetch card data.");
+  }
+}
+
+export async function fetchCustomers() {
+  try {
+    const data: CustomerField[] = await fetch(`${API_URL}/customers`).then(
+      (res) => res.json(),
+    );
+    return data;
+  } catch (err) {
+    console.error("Fetch Error:", err);
+    throw new Error("Failed to fetch all customers.");
   }
 }
