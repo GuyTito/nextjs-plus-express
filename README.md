@@ -49,12 +49,6 @@ pnpm install
 
 The `shared` package is the single home for code that belongs in both apps. It is source-first, so you edit the files in `packages/shared/src` directly and import them from `shared`.
 
-For example:
-
-```ts
-import { formatCurrency, Revenue } from "shared";
-```
-
 ## Adding New Shared Code
 
 1. Add the new file under `packages/shared/src`.
@@ -80,6 +74,41 @@ import { formatDate } from "shared";
 ```
 
 If a file is only used by one app, keep it inside that app instead of moving it into shared.
+
+### Adding Shared Dependencies
+
+To add a dependency that will be used by both apps through the shared package (e.g., zod, lodash, etc.), install it in the shared package using the `--filter` flag:
+
+```bash
+pnpm add <package-name> --filter shared
+```
+
+This installs the package in `packages/shared` and makes it available to both `frontend` and `backend` via the workspace dependency. For example:
+
+```bash
+pnpm add zod --filter shared
+```
+
+After installation, add it to `packages/shared/src/index.ts` to re-export if needed:
+
+```ts
+export * from "./types";
+export * from "./helpers";
+export { z } from "zod";
+```
+
+Both apps can then import it via:
+
+```ts
+import { z } from "shared";
+```
+
+For app-specific dependencies, install them directly in each app:
+
+```bash
+pnpm add <package-name> --filter frontend
+pnpm add <package-name> --filter backend
+```
 
 ## Development
 
