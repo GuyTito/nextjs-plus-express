@@ -90,3 +90,25 @@ export async function updateInvoice(
   revalidatePath("/dashboard/invoices");
   redirect("/dashboard/invoices");
 }
+
+export async function deleteInvoice(id: string) {
+  try {
+    const response = await fetch(`${API_URL}/invoices/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!response.ok) {
+      throw new Error("Failed to delete invoice");
+    }
+    const data = await response.json();
+    console.log(`Success! Invoice deleted.`, data);
+  } catch (error) {
+    // We'll also log the error to the console for now
+    console.error(error);
+    throw new Error("Error:", error!);
+  }
+
+  revalidatePath("/dashboard/invoices");
+}

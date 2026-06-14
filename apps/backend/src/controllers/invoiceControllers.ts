@@ -220,3 +220,18 @@ export async function updateInvoice(req: Request, res: Response) {
       .json({ error: "Database Error: Failed to Update Invoice." });
   }
 }
+
+export async function deleteInvoice(req: Request, res: Response) {
+  const id = req.params.id;
+
+  try {
+    await sql`DELETE FROM invoices WHERE id = ${id}`;
+    return res.status(201).json({ message: "Invoice Deleted" });
+  } catch (error) {
+    // We'll also log the error to the console for now
+    console.error(error);
+    return res
+      .status(400)
+      .json({ error: "Database Error: Failed to Delete Invoice." });
+  }
+}
