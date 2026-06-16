@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check-types": "tsc -p tsconfig.json --noEmit"
+    "check-types": "tsc -p tsconfig.json --noEmit",
+    "dev:clean": "rm -rf .next && next dev -p 3002",
+    "clean": "rm -rf .next"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
