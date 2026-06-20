@@ -35,3 +35,6 @@ npm-debug.log*
 # IDE
 .idea/
 .vscode/
+
+.kilo/
+.playwright-mcp/
