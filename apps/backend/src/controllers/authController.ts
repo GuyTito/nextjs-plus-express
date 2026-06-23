@@ -3,6 +3,7 @@ import { sql } from "../lib/db";
 import { type User } from "shared";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/generateToken";
+import { cookieOptions, JWT_COOKIE_NAME } from "../lib/constants";
 
 export const loginUser: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
@@ -23,11 +24,20 @@ export const loginUser: RequestHandler = async (req, res) => {
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
-  const token = generateToken(user.id, res);
+  generateToken(user.id, res);
 
   res.status(200).json({
     message: "User logged in successfully",
     user: { id: user.id, name: user.name, email: user.email },
-    token,
+    // token,
   });
+};
+
+export const logoutUser: RequestHandler = async (req, res) => {
+  res.clearCookie(JWT_COOKIE_NAME, cookieOptions);
+  res.json({ message: "Logged out" });
+};
+
+export const getMe: RequestHandler = async (req, res) => {
+  res.json({ user: (req as any).user });
 };

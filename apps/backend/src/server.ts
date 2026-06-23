@@ -7,11 +7,20 @@ import revenueRoutes from "./routes/revenueRoutes";
 import invoiceRoutes from "./routes/invoiceRoutes";
 import customerRoutes from "./routes/customerRoutes";
 import { authMiddleware } from "./middlewares/authMiddleware";
+import cookieParser from "cookie-parser";
+
+export const port = process.env.SERVER_PORT;
+if (!port) throw new Error("SERVER_PORT is not set");
 
 const app = express();
-const port = process.env.SERVER_PORT;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3002",
+    credentials: true,
+  }),
+);
+app.use(cookieParser());
 app.use(express.json()); // handles json sent thru body
 app.use(express.urlencoded({ extended: true })); // handles forms data from browser
 
