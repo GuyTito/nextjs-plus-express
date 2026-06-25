@@ -18,3 +18,6 @@ export const formatDateToLocal = (
   const formatter = new Intl.DateTimeFormat(locale, options);
   return formatter.format(date);
 };
+
+export const JWT_COOKIE_NAME = "jwt";
+export const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

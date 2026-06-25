@@ -1,9 +1,9 @@
 import { type RequestHandler } from "express";
 import { sql } from "../lib/db";
-import { type User } from "shared";
+import { type User, JWT_COOKIE_NAME } from "shared";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/generateToken";
-import { cookieOptions, JWT_COOKIE_NAME } from "../lib/constants";
+import { cookieOptions } from "../lib/constants";
 
 export const loginUser: RequestHandler = async (req, res) => {
   const { email, password } = req.body;

@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import jwt from "jsonwebtoken";
-import { cookieOptions, JWT_COOKIE_NAME, secretKey } from "./constants";
+import { cookieOptions, secretKey } from "./constants";
+import { JWT_COOKIE_NAME, COOKIE_MAX_AGE_MS } from "shared";
 
 export const generateToken = (userId: string, res: Response): string => {
   const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
@@ -10,7 +11,7 @@ export const generateToken = (userId: string, res: Response): string => {
 
   res.cookie(JWT_COOKIE_NAME, token, {
     ...cookieOptions,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: COOKIE_MAX_AGE_MS,
   });
 
   return token;

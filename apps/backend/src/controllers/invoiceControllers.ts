@@ -24,7 +24,10 @@ export async function fetchLatestInvoices(req: Request, res: Response) {
     res.json(data);
   } catch (error) {
     console.error("Database Error:", error);
-    throw new Error("Failed to fetch revenue data.");
+    // throw new Error("Failed to fetch revenue data.");
+    return res
+      .status(400)
+      .json({ error: "Database Error: Failed to fetch Latest Invoices." });
   }
 }
 
@@ -59,7 +62,10 @@ export async function fetchCardData(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("Database Error:", error);
-    throw new Error("Failed to fetch card data.");
+    // throw new Error("Failed to fetch card data.");
+    return res
+      .status(400)
+      .json({ error: "Database Error: Failed to fetch Card Data." });
   }
 }
 
@@ -95,7 +101,10 @@ export async function fetchFilteredInvoices(req: Request, res: Response) {
     res.json(invoices);
   } catch (error) {
     console.error("Database Error:", error);
-    throw new Error("Failed to fetch invoices.");
+    // throw new Error("Failed to fetch invoices.");
+    return res
+      .status(400)
+      .json({ error: "Database Error: Failed to fetch Invoices." });
   }
 }
 
@@ -121,7 +130,10 @@ export async function fetchInvoiceById(req: Request, res: Response) {
     return res.json(invoice[0]);
   } catch (error) {
     console.error("Database Error:", error);
-    throw new Error("Failed to fetch invoice.");
+    // throw new Error("Failed to fetch invoice.");
+    return res
+      .status(400)
+      .json({ error: "Database Error: Failed to fetch Invoice." });
   }
 }
 
