@@ -4,103 +4,51 @@ import type {
   InvoicesTable,
   LatestInvoiceRaw,
   Revenue,
+  User,
 } from "shared";
-
-const API_URL = process.env.API_URL;
+import { api } from "./api";
 
 export async function fetchRevenue() {
-  try {
-    // Artificially delay a response for demo purposes.
-    // Don't do this in production :)
-
-    console.log("Fetching revenue data...");
-    // await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    // const data = await sql<Revenue[]>`SELECT * FROM revenue`;
-    const data: Revenue[] = await fetch(`${API_URL}/revenue`).then((res) =>
-      res.json(),
-    );
-
-    console.log("Data fetch completed after 3 seconds.");
-
-    return data;
-  } catch (error) {
-    console.error("Fetch Error:", error);
-    throw new Error("Failed to fetch revenue data.");
-  }
+  const data: Revenue[] = await api(`revenue`);
+  return data;
 }
 
 export async function fetchLatestInvoices() {
-  try {
-    const data: LatestInvoiceRaw[] = await fetch(
-      `${API_URL}/invoices/latest`,
-    ).then((res) => res.json());
-    return data;
-  } catch (error) {
-    console.error("Fetch Error:", error);
-    throw new Error("Failed to fetch the latest invoices.");
-  }
+  const data: LatestInvoiceRaw[] = await api(`invoices/latest`);
+  return data;
 }
 
 export async function fetchCardData() {
-  try {
-    const data = await fetch(`${API_URL}/invoices/card-data`).then((res) =>
-      res.json(),
-    );
-    return data;
-  } catch (error) {
-    console.error("Fetch Error:", error);
-    throw new Error("Failed to fetch card data.");
-  }
+  const data = await api(`invoices/card-data`);
+  return data;
 }
 
 export async function fetchFilteredInvoices(
   query: string,
   currentPage: number,
 ) {
-  try {
-    const data: InvoicesTable[] = await fetch(
-      `${API_URL}/invoices?query=${query}&currentPage=${currentPage}`,
-    ).then((res) => res.json());
-    return data;
-  } catch (error) {
-    console.error("Fetch Error:", error);
-    throw new Error("Failed to fetch card data.");
-  }
+  const data: InvoicesTable[] = await api(
+    `invoices?query=${query}&currentPage=${currentPage}`,
+  );
+  return data;
 }
 
 export async function fetchInvoicesPages(query: string) {
-  try {
-    const data: number = await fetch(
-      `${API_URL}/invoices/pages?query=${query}`,
-    ).then((res) => res.json());
-    return data;
-  } catch (error) {
-    console.error("Fetch Error:", error);
-    throw new Error("Failed to fetch card data.");
-  }
+  const data: number = await api(`invoices/pages?query=${query}`);
+  return data;
 }
 
 export async function fetchCustomers() {
-  try {
-    const data: CustomerField[] = await fetch(`${API_URL}/customers`).then(
-      (res) => res.json(),
-    );
-    return data;
-  } catch (err) {
-    console.error("Fetch Error:", err);
-    throw new Error("Failed to fetch all customers.");
-  }
+  const data: CustomerField[] = await api(`customers`);
+  return data;
 }
 
 export async function fetchInvoiceById(id: string) {
-  try {
-    const data: InvoiceForm = await fetch(`${API_URL}/invoices/${id}`).then(
-      (res) => res.json(),
-    );
-    return data;
-  } catch (error) {
-    console.error("Fetch Error:", error);
-    throw new Error("Failed to fetch invoice.");
-  }
+  const data: InvoiceForm = await api(`invoices/${id}`);
+  return data;
+}
+
+export async function fetchCurrentUser() {
+  const data: User = await api(`auth/user`);
+  return data;
 }
