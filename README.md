@@ -60,7 +60,7 @@ The frontend dev server runs on port **3002** (`next dev -p 3002`); the backend 
 │   │   │   ├── login/             # Login page + form
 │   │   │   ├── lib/               # Server-side data fetching, API client, server actions
 │   │   │   └── ui/                # Presentational components (cards, charts, tables, forms)
-│   │   ├── proxy.ts               # ⚠️ Route-protection logic — NOT currently wired up (see Notes)
+│   │   ├── proxy.ts               # Next.js 16 Proxy (renamed from middleware) — route protection
 │   │   ├── next.config.ts         # Config (transpilePackages: ["shared"])
 │   │   └── postcss.config.mjs     # Tailwind CSS v4 plugin
 │   └── backend/                  # Express API server (TypeScript)
@@ -107,7 +107,18 @@ Browser ──► Next.js (Server Components + Server Actions)
 - `authenticate` (server action) posts credentials to the backend, parses the backend's `Set-Cookie` header, and re-sets the cookie on the Next.js response so the browser holds it. Subsequent server-side fetches forward the cookie to the API.
 - Logout clears the cookie on both sides.
 
-### API endpoints
+### Proxy / route protection
+
+In Next.js 16 the old `middleware` convention was deprecated and renamed to **Proxy**. `apps/frontend/proxy.ts` is that convention file (placed at the app root, exporting a named `proxy` function), so it **runs automatically** for the paths in its `matcher`:
+
+- `/dashboard/:path*` — protected area.
+- `/login`, `/signup` — auth routes.
+
+Logic:
+- Unauthenticated requests to a protected route are redirected to `/login?redirect=<path>` (so the user returns after logging in).
+- Authenticated requests hitting `/login` or `/signup` are redirected to `/dashboard`.
+
+The Proxy only reads the `jwt` cookie; it does not contact the backend. Note from the Next.js docs that a Proxy matcher that excludes a path also skips Server Function calls on that path, so authorization should still be verified server-side (the backend `authMiddleware` does this for the API).
 
 | Method | Path                      | Auth | Description                                  |
 | ------ | ------------------------- | ---- | -------------------------------------------- |
@@ -242,7 +253,7 @@ pnpm lint
 
 ## Notes & Known Gaps
 
-- **`apps/frontend/proxy.ts` is not wired up.** It contains route-protection (redirect unauthenticated users from `/dashboard`, `/profile`, `/settings`) but is never registered — there is no `middleware.ts` and nothing imports it. Frontend route protection currently does not run; the API enforces auth server-side, but dashboard pages will attempt fetches that return 401 when unauthenticated. To enable it, register the function as Next.js middleware (e.g. rename to `middleware.ts` or import it there).
+- **`apps/frontend/proxy.ts` is the Next.js 16 Proxy (formerly `middleware`).** It is wired up automatically (it sits at the app root and exports a named `proxy` function) and guards `/dashboard/*`, `/login`, and `/signup`. It only checks for the presence of the `jwt` cookie — it does not validate the token — so backend authorization (via `authMiddleware`) remains the real enforcement.
 - **`fetchCurrentUser()` calls `/auth/user`** in `app/lib/data.ts`, but the backend only exposes `GET /api/auth/me`. That fetch will 404 — align the path (or add the route) before using it.
 - **Register does not auto-login.** `generateToken` is intentionally commented out in `registerUser`, so new users must log in separately.
 - The revenue endpoint includes an artificial 3-second delay for demo/loading-state purposes.

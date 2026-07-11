@@ -25,7 +25,7 @@ pnpm + Turborepo monorepo with three workspace packages. Read the relevant Next.
 
 ## Things to know before changing code
 
-- `apps/frontend/proxy.ts` is orphaned route-protection logic (no `middleware.ts`, not imported). It does NOT run. Frontend route protection is currently unenforced — the API enforces auth instead.
+- `apps/frontend/proxy.ts` is the Next.js 16 **Proxy** convention (the `middleware` file was renamed to `proxy` in v16). It lives at the app root and exports a named `proxy` function, so it runs automatically for `/dashboard/:path*`, `/login`, and `/signup`. It only checks for the `jwt` cookie's presence (no token validation) — the backend `authMiddleware` is the real authorization enforcement. Do not delete/rename it expecting it to be unused.
 - `fetchCurrentUser()` in `app/lib/data.ts` calls `auth/user`, but the backend only exposes `GET /api/auth/me`. Align these before relying on it.
 - Register does not auto-login (`generateToken` is commented out in `registerUser`).
 - Shared zod schema is zod **v4**; `InvoiceSchema` is exported from `shared` and used by both the frontend action and the backend validator.
