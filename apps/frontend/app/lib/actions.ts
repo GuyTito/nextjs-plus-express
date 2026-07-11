@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { COOKIE_MAX_AGE_MS, InvoiceSchema, JWT_COOKIE_NAME } from "shared";
+import {
+  COOKIE_MAX_AGE_MS,
+  InvoiceSchema,
+  JWT_COOKIE_NAME,
+  RegisterSchema,
+} from "shared";
 import { api, API_URL } from "./api";
 import { cookies } from "next/headers";
 import { parseSetCookie } from "cookie";
@@ -122,6 +127,62 @@ export async function authenticate(
 
   // Next.js redirect must be called outside the try/catch block
   redirect(redirectTo);
+}
+
+export type RegisterState = {
+  errors?: {
+    name?: string[];
+    email?: string[];
+    password?: string[];
+    confirmPassword?: string[];
+  };
+  message?: string | null;
+};
+
+export async function register(
+  prevState: RegisterState,
+  formData: FormData,
+): Promise<RegisterState> {
+  const validatedFields = RegisterSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Missing or invalid fields.",
+    };
+  }
+
+  const { name, email, password } = validatedFields.data;
+
+  try {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const friendlyMessage =
+        response.status === 409
+          ? "An account with this email already exists."
+          : errorData.message || "Failed to register.";
+      return { message: friendlyMessage };
+    }
+  } catch (error: any) {
+    if (error.message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    console.error("Registration error:", error.message);
+    return { message: error.message || "Failed to register." };
+  }
+
+  redirect("/login?registered=1");
 }
 
 export async function signOut() {

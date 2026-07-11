@@ -15,6 +15,7 @@ import { useSearchParams } from "next/navigation";
 export default function LoginForm() {
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get("redirect") || "/dashboard";
+  const registered = searchParams.get("registered");
   const [errorMessage, formAction, isPending] = useActionState(
     authenticate,
     undefined,
@@ -82,6 +83,20 @@ export default function LoginForm() {
               <p className="text-sm text-red-500">{errorMessage}</p>
             </>
           )}
+          {registered && (
+            <>
+              <ExclamationCircleIcon className="h-5 w-5 text-green-500" />
+              <p className="text-sm text-green-500">
+                Account created — please log in.
+              </p>
+            </>
+          )}
+        </div>
+        <div className="mt-2 text-center text-sm text-gray-600">
+          Don&apos;t have an account?{" "}
+          <a href="/register" className="font-medium text-blue-600 underline">
+            Register
+          </a>
         </div>
       </div>
     </form>

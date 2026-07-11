@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { JWT_COOKIE_NAME } from "shared";
 
 const PROTECTED_ROUTES = ["/dashboard", "/profile", "/settings"];
-const AUTH_ROUTES = ["/login", "/signup"];
+const AUTH_ROUTES = ["/login", "/register"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -28,5 +28,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*", "/login", "/register"],
 };
