@@ -41,3 +41,41 @@ export const logoutUser: RequestHandler = async (req, res) => {
 export const getMe: RequestHandler = async (req, res) => {
   res.json({ user: (req as any).user });
 };
+
+// register
+export const registerUser: RequestHandler = async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res
+      .status(400)
+      .json({ message: "Name, email and password are required" });
+  }
+
+  // check if user already exists in DB by email
+  const existingUserArray = await sql<
+    User[]
+  >`SELECT * FROM users WHERE email=${email}`;
+  const existingUser = existingUserArray[0];
+  if (existingUser) {
+    return res.status(409).json({ message: "User already exists" });
+  }
+
+  // hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // insert new user into DB
+  const newUserArray = await sql<User[]>`
+    INSERT INTO users (name, email, password)
+    VALUES (${name}, ${email}, ${hashedPassword})
+    RETURNING *
+  `;
+  const newUser = newUserArray[0];
+
+  // generateToken(newUser.id, res);
+
+  res.status(201).json({
+    message: "User registered successfully",
+    user: { id: newUser.id, name: newUser.name, email: newUser.email },
+    // token,
+  });
+};
