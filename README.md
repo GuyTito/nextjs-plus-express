@@ -112,11 +112,11 @@ Browser ──► Next.js (Server Components + Server Actions)
 In Next.js 16 the old `middleware` convention was deprecated and renamed to **Proxy**. `apps/frontend/proxy.ts` is that convention file (placed at the app root, exporting a named `proxy` function), so it **runs automatically** for the paths in its `matcher`:
 
 - `/dashboard/:path*` — protected area.
-- `/login`, `/signup` — auth routes.
+- `/login`, `/register` — auth routes.
 
 Logic:
 - Unauthenticated requests to a protected route are redirected to `/login?redirect=<path>` (so the user returns after logging in).
-- Authenticated requests hitting `/login` or `/signup` are redirected to `/dashboard`.
+- Authenticated requests hitting `/login` or `/register` are redirected to `/dashboard`.
 
 The Proxy only reads the `jwt` cookie; it does not contact the backend. Note from the Next.js docs that a Proxy matcher that excludes a path also skips Server Function calls on that path, so authorization should still be verified server-side (the backend `authMiddleware` does this for the API).
 
@@ -142,6 +142,7 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 
 - `/` — marketing landing page.
 - `/login` — email/password login form (client component using `useActionState`).
+- `/register` — registration form (name, email, password, confirm password) that posts to the backend and redirects to `/login?registered=1` on success; uses the shared `RegisterSchema` for client + server-side validation.
 - `/dashboard` — overview: summary cards, revenue bar chart, latest invoices. Uses `Suspense` streaming with skeleton fallbacks.
 - `/dashboard/invoices` — searchable, paginated invoice table (6 per page) with create/edit/delete actions.
 - `/dashboard/invoices/create` and `/dashboard/invoices/[id]/edit` — invoice forms (client components using `useActionState`).
@@ -157,7 +158,7 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 | Styling    | Tailwind CSS v4 (`@tailwindcss/postcss`), Heroicons, `clsx`   |
 | Backend    | Express 4, TypeScript, `ts-node-dev` (dev)                    |
 | Database   | PostgreSQL via the `postgres` (porsager) client               |
-| Validation | Zod v4 (shared `InvoiceSchema`)                               |
+| Validation | Zod v4 (shared `InvoiceSchema`, `RegisterSchema`)        |
 | Auth       | `jsonwebtoken`, `bcryptjs`, `cookie-parser`, `cors`, `dotenv` |
 | Misc UI    | `use-debounce` (search input), `cookie` (Set-Cookie parsing)  |
 
@@ -170,7 +171,7 @@ The `shared` package is source-first: edit files in `packages/shared/src` direct
 export * from "./types";
 export * from "./helpers";
 export { z } from "zod";
-export { InvoiceSchema } from "./schemas";
+export { InvoiceSchema, RegisterSchema } from "./schemas";
 ```
 
 ```ts
@@ -253,7 +254,7 @@ pnpm lint
 
 ## Notes & Known Gaps
 
-- **`apps/frontend/proxy.ts` is the Next.js 16 Proxy (formerly `middleware`).** It is wired up automatically (it sits at the app root and exports a named `proxy` function) and guards `/dashboard/*`, `/login`, and `/signup`. It only checks for the presence of the `jwt` cookie — it does not validate the token — so backend authorization (via `authMiddleware`) remains the real enforcement.
+- **`apps/frontend/proxy.ts` is the Next.js 16 Proxy (formerly `middleware`).** It is wired up automatically (it sits at the app root and exports a named `proxy` function) and guards `/dashboard/*`, `/login`, and `/register`. It only checks for the presence of the `jwt` cookie — it does not validate the token — so backend authorization (via `authMiddleware`) remains the real enforcement.
 - **`fetchCurrentUser()` calls `/auth/user`** in `app/lib/data.ts`, but the backend only exposes `GET /api/auth/me`. That fetch will 404 — align the path (or add the route) before using it.
 - **Register does not auto-login.** `generateToken` is intentionally commented out in `registerUser`, so new users must log in separately.
 - The revenue endpoint includes an artificial 3-second delay for demo/loading-state purposes.
