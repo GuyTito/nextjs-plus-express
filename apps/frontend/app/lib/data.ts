@@ -49,6 +49,6 @@ export async function fetchInvoiceById(id: string) {
 }
 
 export async function fetchCurrentUser() {
-  const data: User = await api(`auth/user`);
-  return data;
+  const data: { user: User } = await api(`auth/me`);
+  return data.user;
 }

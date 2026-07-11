@@ -3,8 +3,11 @@ import NavLinks from "@/app/ui/dashboard/nav-links";
 import AcmeLogo from "@/app/ui/acme-logo";
 import { PowerIcon } from "@heroicons/react/24/outline";
 import { signOut } from "@/app/lib/actions";
+import { fetchCurrentUser } from "@/app/lib/data";
 
-export default function SideNav() {
+export default async function SideNav() {
+  const user = await fetchCurrentUser();
+
   return (
     <div className="flex h-full flex-col px-3 py-4 md:px-2">
       <Link
@@ -18,6 +21,17 @@ export default function SideNav() {
       <div className="flex grow flex-row justify-between space-x-2 md:flex-col md:space-x-0 md:space-y-2">
         <NavLinks />
         <div className="hidden h-auto w-full grow rounded-md bg-gray-50 md:block"></div>
+        <div className="flex items-center gap-3 rounded-md bg-gray-50 p-3 md:flex-col md:items-start">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="hidden min-w-0 md:block">
+            <p className="truncate text-sm font-medium text-gray-900">
+              {user.name}
+            </p>
+            <p className="truncate text-xs text-gray-500">{user.email}</p>
+          </div>
+        </div>
         <form action={async () => {
           "use server";
           await signOut();
