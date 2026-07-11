@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --watch ../../packages/shared/src src/server.ts",
-    "check-types": "tsc -p tsconfig.json --noEmit"
+    "check-types": "tsc -p tsconfig.json --noEmit",
+    "db:migrate": "node-pg-migrate up --config node-pg-migrate.config.js --database-url-var POSTGRES_URL",
+    "db:migrate:down": "node-pg-migrate down --config node-pg-migrate.config.js --database-url-var POSTGRES_URL"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -22,6 +24,7 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.10.0",
+    "node-pg-migrate": "^7.9.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
   }

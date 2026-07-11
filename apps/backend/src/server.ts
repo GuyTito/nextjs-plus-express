@@ -8,6 +8,7 @@ import invoiceRoutes from "./routes/invoiceRoutes";
 import customerRoutes from "./routes/customerRoutes";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import cookieParser from "cookie-parser";
+import { runMigrations } from "./migrate";
 
 export const port = process.env.SERVER_PORT;
 if (!port) throw new Error("SERVER_PORT is not set");
@@ -37,6 +38,19 @@ app.get("/api/hello", (req: Request, res: Response) => {
 });
 
 // Start server
-const server = app.listen(port, () => {
-  console.log(`🚀 Server is running on http://localhost:${port}`);
-});
+async function startServer() {
+  if (process.env.RUN_MIGRATIONS !== "false") {
+    try {
+      await runMigrations();
+    } catch (error) {
+      console.error("Failed to run migrations:", error);
+      process.exit(1);
+    }
+  }
+
+  app.listen(port, () => {
+    console.log(`🚀 Server is running on http://localhost:${port}`);
+  });
+}
+
+startServer();

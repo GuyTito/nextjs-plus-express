@@ -7,6 +7,7 @@ export type User = {
   name: string;
   email: string;
   password: string;
+  is_verified?: boolean;
 };
 
 export type Customer = {
