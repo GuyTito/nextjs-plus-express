@@ -64,12 +64,15 @@ The frontend dev server runs on port **3002** (`next dev -p 3002`); the backend 
 │   │   ├── next.config.ts         # Config (transpilePackages: ["shared"])
 │   │   └── postcss.config.mjs     # Tailwind CSS v4 plugin
 │   └── backend/                  # Express API server (TypeScript)
+│       ├── migrations/           # node-pg-migrate SQL migrations (schema + seed)
+│       ├── node-pg-migrate.config.js  # migration config (POSTGRES_URL, schema public)
 │       └── src/
 │           ├── controllers/      # Request handlers (auth, invoices, revenue, customers)
 │           ├── routes/            # Express routers
 │           ├── middlewares/       # auth + zod request validation
 │           ├── lib/               # db client, JWT generation, cookie/secret constants
-│           └── server.ts          # App entry point
+│           ├── migrate.ts         # node-pg-migrate runner, called on startup
+│           └── server.ts          # App entry point (runs migrations, then listens)
 ├── packages/
 │   └── shared/                   # Shared types, helpers, and zod schemas (source-first)
 ├── package.json                  # Root workspace scripts
@@ -85,6 +88,50 @@ The frontend dev server runs on port **3002** (`next dev -p 3002`); the backend 
 | `frontend` | `apps/frontend`   | Next.js App Router UI for the dashboard                      |
 | `backend`  | `apps/backend`    | Express REST API backed by PostgreSQL                        |
 | `shared`   | `packages/shared` | Shared types, formatting helpers, and zod validation schemas |
+
+## Database & Migrations
+
+The database schema is versioned with [`node-pg-migrate`](https://github.com/salsita/node-pg-migrate). Migrations live in `apps/backend/migrations/`; the config (`apps/backend/node-pg-migrate.config.js`) reads `POSTGRES_URL` and targets the `public` schema.
+
+### Scripts
+
+Run from `apps/backend` (or with `pnpm --filter backend …` from the root):
+
+| Command             | Description                                              |
+| ------------------- | -------------------------------------------------------- |
+| `pnpm db:migrate`   | Apply pending migrations (up) — also runs on `pnpm dev`   |
+| `pnpm db:migrate:down` | Roll back the most recently applied migration         |
+
+`src/server.ts` runs migrations automatically on startup (before the server listens), gated by the `RUN_MIGRATIONS` env var (on by default in dev; set `RUN_MIGRATIONS=false` in production so migrations never auto-run there).
+
+### Schema & seed
+
+- Tables: `users` (with `is_verified`), `customers`, `invoices` (`customer_id` has **no** foreign key), `revenue` (`month` is the only unique key — there is **no** primary key), and `verification_tokens` (inert; not used by app code yet). UUIDs are generated with the `uuid-ossp` extension.
+- Seed data (1 user, 6 customers, 13 invoices, 12 revenue months) is applied by the seed migration. Amounts are stored in **cents**.
+
+After a fresh `pnpm db:migrate`, log in with:
+
+| Email              | Password |
+| ------------------ | -------- |
+| `user@nextmail.com` | `123456` |
+
+### Changing the schema
+
+`node-pg-migrate` is **imperative** — there is no single schema file to edit. To make a change, **add a new timestamped migration file** (never edit an existing one), then re-run `pnpm db:migrate`. Example, adding a column:
+
+```js
+// apps/backend/migrations/20240101000002-add-users-phone.js
+exports.up = (pgm) => {
+  pgm.addColumn("users", { phone: { type: "varchar(255)" } });
+};
+exports.down = (pgm) => {
+  pgm.dropColumn("users", "phone");
+};
+```
+
+After applying, sync the affected type in `packages/shared/src/types.ts` by hand (there is no codegen) and update any controller that uses the column.
+
+To reset: run `pnpm db:migrate:down` once per applied migration (then `pnpm db:migrate` to re-apply), or `DROP DATABASE` + recreate and run `pnpm db:migrate` to rebuild schema and seed from scratch.
 
 ## Architecture
 
@@ -158,6 +205,7 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 | Styling    | Tailwind CSS v4 (`@tailwindcss/postcss`), Heroicons, `clsx`   |
 | Backend    | Express 4, TypeScript, `ts-node-dev` (dev)                    |
 | Database   | PostgreSQL via the `postgres` (porsager) client               |
+| Migrations | `node-pg-migrate` (schema versioned via SQL migrations)      |
 | Validation | Zod v4 (shared `InvoiceSchema`, `RegisterSchema`)        |
 | Auth       | `jsonwebtoken`, `bcryptjs`, `cookie-parser`, `cors`, `dotenv` |
 | Misc UI    | `use-debounce` (search input), `cookie` (Set-Cookie parsing)  |
@@ -257,5 +305,7 @@ pnpm lint
 - **`apps/frontend/proxy.ts` is the Next.js 16 Proxy (formerly `middleware`).** It is wired up automatically (it sits at the app root and exports a named `proxy` function) and guards `/dashboard/*`, `/login`, and `/register`. It only checks for the presence of the `jwt` cookie — it does not validate the token — so backend authorization (via `authMiddleware`) remains the real enforcement.
 - **`fetchCurrentUser()` calls `/auth/user`** in `app/lib/data.ts`, but the backend only exposes `GET /api/auth/me`. That fetch will 404 — align the path (or add the route) before using it.
 - **Register does not auto-login.** `generateToken` is intentionally commented out in `registerUser`, so new users must log in separately.
+- **Initial login:** after a fresh `pnpm db:migrate`, sign in with `user@nextmail.com` / `123456` (seeded user). DB passwords are bcrypt-hashed; `123456` is the seeded demo password.
+- **Stale sessions redirect instead of crashing:** `apps/frontend/app/lib/api.ts` sends unauthenticated/stale requests (backend `401` or a `404` "User not found") to `/login?session=expired`, so an old JWT cookie bounces you to login rather than erroring the dashboard.
 - The revenue endpoint includes an artificial 3-second delay for demo/loading-state purposes.
 - Several UI blocks contain commented "Uncomment in Chapter X" markers left over from the original course scaffolding.
