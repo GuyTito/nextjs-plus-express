@@ -1,11 +1,12 @@
 # Next.js Dashboard + Express Monorepo
 
-This is a pnpm Turborepo monorepo with a Next.js frontend, an Express backend, and a small shared package for code used by both apps.
+A full-stack TypeScript monorepo: a **Next.js 16** dashboard frontend backed by an **Express** API server, with a shared package for code used by both apps. It is a teaching/demo project (derived from the Vercel Next.js Learn "Dashboard" course) extended with a real Express + PostgreSQL backend and JWT cookie authentication.
 
 ## Prerequisites
 
 - Node.js 18 or newer
 - pnpm 11.x
+- A PostgreSQL database (connection string required by the backend)
 
 ## Install
 
@@ -13,7 +14,30 @@ This is a pnpm Turborepo monorepo with a Next.js frontend, an Express backend, a
 pnpm install
 ```
 
+## Environment Variables
+
+Both apps need a `.env` file (see `.env` files already present in each app for shape). Required variables:
+
+**`apps/backend/.env`**
+
+| Variable         | Purpose                                             |
+| ---------------- | --------------------------------------------------- |
+| `SERVER_PORT`    | Port the Express server listens on (required)       |
+| `FRONTEND_URL`   | Allowed CORS origin, e.g. `http://localhost:3002`   |
+| `POSTGRES_URL`   | PostgreSQL connection string (required)             |
+| `JWT_SECRET`     | Secret used to sign JWTs (required)                 |
+| `JWT_EXPIRES_IN` | Token lifetime, e.g. `7d` (optional, defaults `7d`) |
+
+**`apps/frontend/.env`**
+
+| Variable   | Purpose                                                       |
+| ---------- | ------------------------------------------------------------- |
+| `API_URL`  | Backend base URL, e.g. `http://localhost:3000` (required)     |
+| `NODE_ENV` | `production` toggles `secure`/`sameSite=none` cookie behavior |
+
 ## Scripts
+
+Run from the repo root via Turborepo:
 
 | Command            | Description                                        |
 | ------------------ | -------------------------------------------------- |
@@ -23,31 +47,131 @@ pnpm install
 | `pnpm check-types` | Type-check all workspaces                          |
 | `pnpm format`      | Format Markdown and TypeScript files with Prettier |
 
+The frontend dev server runs on port **3002** (`next dev -p 3002`); the backend port comes from `SERVER_PORT`.
+
 ## Project Structure
 
 ```
 .
 ├── apps/
-│   ├── frontend/          # Next.js 16 dashboard app
-│   └── backend/           # Express API server
+│   ├── frontend/                 # Next.js 16 App Router dashboard app (port 3002)
+│   │   ├── app/
+│   │   │   ├── (dashboard)/...    # Protected dashboard area (overview, invoices, customers)
+│   │   │   ├── login/             # Login page + form
+│   │   │   ├── lib/               # Server-side data fetching, API client, server actions
+│   │   │   └── ui/                # Presentational components (cards, charts, tables, forms)
+│   │   ├── proxy.ts               # ⚠️ Route-protection logic — NOT currently wired up (see Notes)
+│   │   ├── next.config.ts         # Config (transpilePackages: ["shared"])
+│   │   └── postcss.config.mjs     # Tailwind CSS v4 plugin
+│   └── backend/                  # Express API server (TypeScript)
+│       └── src/
+│           ├── controllers/      # Request handlers (auth, invoices, revenue, customers)
+│           ├── routes/            # Express routers
+│           ├── middlewares/       # auth + zod request validation
+│           ├── lib/               # db client, JWT generation, cookie/secret constants
+│           └── server.ts          # App entry point
 ├── packages/
-│   └── shared/            # Shared helpers, types, and other reusable code
-├── package.json           # Root workspace scripts
-├── pnpm-workspace.yaml    # Workspace package globs
-└── turbo.json             # Turborepo pipeline configuration
+│   └── shared/                   # Shared types, helpers, and zod schemas (source-first)
+├── package.json                  # Root workspace scripts
+├── pnpm-workspace.yaml           # Workspace package globs
+├── turbo.json                    # Turborepo pipeline configuration
+└── tsconfig.json                 # Base TS config (shared by all packages)
 ```
 
 ## Workspace Packages
 
-| Package    | Path              | Purpose                          |
-| ---------- | ----------------- | -------------------------------- |
-| `frontend` | `apps/frontend`   | Next.js app for the dashboard UI |
-| `backend`  | `apps/backend`    | Express API for data and routes  |
-| `shared`   | `packages/shared` | Shared code used by both apps    |
+| Package    | Path              | Purpose                                                      |
+| ---------- | ----------------- | ------------------------------------------------------------ |
+| `frontend` | `apps/frontend`   | Next.js App Router UI for the dashboard                      |
+| `backend`  | `apps/backend`    | Express REST API backed by PostgreSQL                        |
+| `shared`   | `packages/shared` | Shared types, formatting helpers, and zod validation schemas |
+
+## Architecture
+
+```
+Browser ──► Next.js (Server Components + Server Actions)
+              │  forwards JWT cookie
+              ▼
+          Express API ──► PostgreSQL (postgres client)
+```
+
+- **Frontend (Next.js 16)** uses the App Router. Server Components fetch data through `app/lib/data.ts`, which calls `app/lib/api.ts`. `api()` attaches the JWT cookie (read via `next/headers` `cookies()`) to backend requests and throws on non-OK responses. Mutations (create/update/delete invoice, login, logout) are handled by **Server Actions** in `app/lib/actions.ts` (`"use server"`).
+- **Backend (Express)** exposes a REST API. All `/api/revenue`, `/api/invoices`, and `/api/customers` routes sit behind `authMiddleware`, which verifies the JWT, loads the user from the DB, and attaches it to `req.user`. Invoice create/update routes additionally run `validateRequest(InvoiceSchema)` (zod validation from `shared`).
+- **Shared package** is the single source of truth for code used by both apps: domain types, formatting helpers (`formatCurrency`, `formatDateToLocal`), the JWT cookie name/max-age constants, and the `InvoiceSchema` zod schema (plus a re-export of `z` from zod).
+
+### Authentication model
+
+- Passwords are hashed with `bcryptjs`.
+- On login, `generateToken` signs a JWT (`{ userId }`) and sets an **httpOnly** cookie named `jwt` (`JWT_COOKIE_NAME`).
+- Cookie `sameSite` is `lax` in dev and `none` in production; `secure` is set only in production.
+- `authenticate` (server action) posts credentials to the backend, parses the backend's `Set-Cookie` header, and re-sets the cookie on the Next.js response so the browser holds it. Subsequent server-side fetches forward the cookie to the API.
+- Logout clears the cookie on both sides.
+
+### API endpoints
+
+| Method | Path                      | Auth | Description                                  |
+| ------ | ------------------------- | ---- | -------------------------------------------- |
+| POST   | `/api/auth/register`      | —    | Register a user (hashes password)            |
+| POST   | `/api/auth/login`         | —    | Authenticate, set JWT cookie                 |
+| POST   | `/api/auth/logout`        | —    | Clear JWT cookie                             |
+| GET    | `/api/auth/me`            | ✅   | Return current user (attached by middleware) |
+| GET    | `/api/revenue`            | ✅   | Monthly revenue rows                         |
+| GET    | `/api/invoices/latest`    | ✅   | 5 latest invoices (joined with customers)    |
+| GET    | `/api/invoices/card-data` | ✅   | Counts + paid/pending totals                 |
+| GET    | `/api/invoices/pages`     | ✅   | Total page count for a query                 |
+| GET    | `/api/invoices`           | ✅   | Filtered/paginated invoice list              |
+| GET    | `/api/invoices/:id`       | ✅   | Single invoice by id                         |
+| POST   | `/api/invoices`           | ✅   | Create invoice (zod-validated)               |
+| PUT    | `/api/invoices/:id`       | ✅   | Update invoice (zod-validated)               |
+| DELETE | `/api/invoices/:id`       | ✅   | Delete invoice                               |
+| GET    | `/api/customers`          | ✅   | Customer id + name list                      |
+| GET    | `/api/hello`              | —    | Health/echo endpoint                         |
+
+### Frontend pages
+
+- `/` — marketing landing page.
+- `/login` — email/password login form (client component using `useActionState`).
+- `/dashboard` — overview: summary cards, revenue bar chart, latest invoices. Uses `Suspense` streaming with skeleton fallbacks.
+- `/dashboard/invoices` — searchable, paginated invoice table (6 per page) with create/edit/delete actions.
+- `/dashboard/invoices/create` and `/dashboard/invoices/[id]/edit` — invoice forms (client components using `useActionState`).
+- `/dashboard/customers` — placeholder page.
+- Error boundary (`error.tsx`) and loading states (`loading.tsx`, skeletons) are wired in.
+
+## Technology Stack
+
+| Layer      | Choice                                                        |
+| ---------- | ------------------------------------------------------------- |
+| Monorepo   | pnpm workspaces + Turborepo                                   |
+| Frontend   | Next.js 16 (App Router), React 19, TypeScript                 |
+| Styling    | Tailwind CSS v4 (`@tailwindcss/postcss`), Heroicons, `clsx`   |
+| Backend    | Express 4, TypeScript, `ts-node-dev` (dev)                    |
+| Database   | PostgreSQL via the `postgres` (porsager) client               |
+| Validation | Zod v4 (shared `InvoiceSchema`)                               |
+| Auth       | `jsonwebtoken`, `bcryptjs`, `cookie-parser`, `cors`, `dotenv` |
+| Misc UI    | `use-debounce` (search input), `cookie` (Set-Cookie parsing)  |
 
 ## How Shared Code Works
 
-The `shared` package is the single home for code that belongs in both apps. It is source-first, so you edit the files in `packages/shared/src` directly and import them from `shared`.
+The `shared` package is source-first: edit files in `packages/shared/src` directly and import them from `shared`. It is consumed by both apps via a workspace dependency (`"shared": "workspace:*"`) and `transpilePackages: ["shared"]` in the Next.js config. Entry points are re-exported from `packages/shared/src/index.ts`.
+
+```ts
+// packages/shared/src/index.ts
+export * from "./types";
+export * from "./helpers";
+export { z } from "zod";
+export { InvoiceSchema } from "./schemas";
+```
+
+```ts
+import {
+  formatCurrency,
+  InvoiceSchema,
+  JWT_COOKIE_NAME,
+  type Invoice,
+} from "shared";
+```
+
+If a file is only used by one app, keep it inside that app instead of moving it into shared.
 
 ## Adding New Shared Code
 
@@ -73,11 +197,9 @@ export * from "./formatDate";
 import { formatDate } from "shared";
 ```
 
-If a file is only used by one app, keep it inside that app instead of moving it into shared.
+### Adding shared dependencies
 
-### Adding Shared Dependencies
-
-To add a dependency that will be used by both apps through the shared package (e.g., zod, lodash, etc.), install it in the shared package using the `--filter` flag:
+To add a dependency used by both apps through `shared` (e.g. a validation or utility lib):
 
 ```bash
 pnpm add <package-name> --filter shared
@@ -103,7 +225,7 @@ Both apps can then import it via:
 import { z } from "shared";
 ```
 
-For app-specific dependencies, install them directly in each app:
+App-specific dependencies install directly in each app:
 
 ```bash
 pnpm add <package-name> --filter frontend
@@ -117,3 +239,11 @@ pnpm dev
 pnpm check-types
 pnpm lint
 ```
+
+## Notes & Known Gaps
+
+- **`apps/frontend/proxy.ts` is not wired up.** It contains route-protection (redirect unauthenticated users from `/dashboard`, `/profile`, `/settings`) but is never registered — there is no `middleware.ts` and nothing imports it. Frontend route protection currently does not run; the API enforces auth server-side, but dashboard pages will attempt fetches that return 401 when unauthenticated. To enable it, register the function as Next.js middleware (e.g. rename to `middleware.ts` or import it there).
+- **`fetchCurrentUser()` calls `/auth/user`** in `app/lib/data.ts`, but the backend only exposes `GET /api/auth/me`. That fetch will 404 — align the path (or add the route) before using it.
+- **Register does not auto-login.** `generateToken` is intentionally commented out in `registerUser`, so new users must log in separately.
+- The revenue endpoint includes an artificial 3-second delay for demo/loading-state purposes.
+- Several UI blocks contain commented "Uncomment in Chapter X" markers left over from the original course scaffolding.
