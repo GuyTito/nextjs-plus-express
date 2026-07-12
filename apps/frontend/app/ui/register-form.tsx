@@ -39,6 +39,7 @@ export default function RegisterForm() {
                 name="name"
                 placeholder="Enter your name"
                 aria-describedby="name-error"
+                defaultValue={state.values?.name}
                 required
               />
               <UserIcon className="pointer-events-none absolute left-3 top-1/2 size-4.5 -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
@@ -67,6 +68,7 @@ export default function RegisterForm() {
                 name="email"
                 placeholder="Enter your email address"
                 aria-describedby="email-error"
+                defaultValue={state.values?.email}
                 required
               />
               <AtSymbolIcon className="pointer-events-none absolute left-3 top-1/2 size-4.5 -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
@@ -95,6 +97,7 @@ export default function RegisterForm() {
                 name="password"
                 placeholder="Enter password"
                 aria-describedby="password-error"
+                defaultValue={state.values?.password}
                 required
                 minLength={6}
               />
@@ -124,6 +127,7 @@ export default function RegisterForm() {
                 name="confirmPassword"
                 placeholder="Confirm password"
                 aria-describedby="confirmPassword-error"
+                defaultValue={state.values?.confirmPassword}
                 required
                 minLength={6}
               />

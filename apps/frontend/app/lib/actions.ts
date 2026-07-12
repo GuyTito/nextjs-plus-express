@@ -137,23 +137,32 @@ export type RegisterState = {
     confirmPassword?: string[];
   };
   message?: string | null;
+  values?: {
+    name?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  };
 };
 
 export async function register(
   prevState: RegisterState,
   formData: FormData,
 ): Promise<RegisterState> {
-  const validatedFields = RegisterSchema.safeParse({
-    name: formData.get("name"),
-    email: formData.get("email"),
-    password: formData.get("password"),
-    confirmPassword: formData.get("confirmPassword"),
-  });
+  const values = {
+    name: (formData.get("name") as string) ?? "",
+    email: (formData.get("email") as string) ?? "",
+    password: (formData.get("password") as string) ?? "",
+    confirmPassword: (formData.get("confirmPassword") as string) ?? "",
+  };
+
+  const validatedFields = RegisterSchema.safeParse(values);
 
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Missing or invalid fields.",
+      values,
     };
   }
 
@@ -172,14 +181,20 @@ export async function register(
         response.status === 409
           ? "An account with this email already exists."
           : errorData.message || "Failed to register.";
-      return { message: friendlyMessage };
+      return {
+        message: friendlyMessage,
+        values,
+      };
     }
   } catch (error: any) {
     if (error.message === "NEXT_REDIRECT") {
       throw error;
     }
     console.error("Registration error:", error.message);
-    return { message: error.message || "Failed to register." };
+    return {
+      message: error.message || "Failed to register.",
+      values,
+    };
   }
 
   redirect("/login?registered=1");
