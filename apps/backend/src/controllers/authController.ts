@@ -3,6 +3,7 @@ import { sql } from "../lib/db";
 import { type User, JWT_COOKIE_NAME } from "shared";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/generateToken";
+import { generateOTP } from "../lib/generateOTP";
 import { cookieOptions } from "../lib/constants";
 
 export const loginUser: RequestHandler = async (req, res) => {
@@ -73,9 +74,18 @@ export const registerUser: RequestHandler = async (req, res) => {
 
   // generateToken(newUser.id, res);
 
+  // best-effort OTP generation; registration succeeds even if this fails
+  let otp: string | undefined;
+  try {
+    otp = await generateOTP(newUser.id, newUser.email, "EMAIL_VERIFICATION");
+  } catch (e) {
+    console.error("Failed to generate OTP", e);
+  }
+
   res.status(201).json({
     message: "User registered successfully",
     user: { id: newUser.id, name: newUser.name, email: newUser.email },
     // token,
+    ...(otp && { otp }),
   });
 };

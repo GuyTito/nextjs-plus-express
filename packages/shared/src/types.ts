@@ -81,6 +81,11 @@ export type CustomerField = {
   name: string;
 };
 
+export type VerificationType =
+  | "EMAIL_VERIFICATION"
+  | "PASSWORD_RESET"
+  | "MFA_LOGIN";
+
 export type InvoiceForm = {
   id: string;
   customer_id: string;
