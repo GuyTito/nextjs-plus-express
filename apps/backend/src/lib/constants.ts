@@ -1,3 +1,5 @@
+export const MAX_OTP_ATTEMPTS = 5;
+
 export const secretKey = process.env.JWT_SECRET;
 if (!secretKey) throw new Error("JWT_SECRET environment variable is not set");
 

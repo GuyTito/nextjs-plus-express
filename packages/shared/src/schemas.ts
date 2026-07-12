@@ -30,4 +30,19 @@ const RegisterFormSchema = z
     path: ["confirmPassword"],
   });
 
+export const VerifyOtpSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email." }),
+  code: z.string().regex(/^\d{6}$/, { message: "Code must be 6 digits." }),
+  type: z.enum(["EMAIL_VERIFICATION", "PASSWORD_RESET", "MFA_LOGIN"], {
+    error: "Invalid verification type.",
+  }),
+});
+
+export const ResendOtpSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email." }),
+  type: z.enum(["EMAIL_VERIFICATION", "PASSWORD_RESET", "MFA_LOGIN"], {
+    error: "Invalid verification type.",
+  }),
+});
+
 export const RegisterSchema = RegisterFormSchema;
