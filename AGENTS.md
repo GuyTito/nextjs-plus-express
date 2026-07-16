@@ -18,8 +18,8 @@ pnpm + Turborepo monorepo with three workspace packages. Read the relevant Next.
 
 ## Conventions
 
-- Frontend data flow: Server Components call `app/lib/data.ts` → `app/lib/api.ts` (forwards the `jwt` cookie from `next/headers`). Mutations go through Server Actions in `app/lib/actions.ts` (`"use server"`).
-- Backend: routes in `src/routes/*` → controllers in `src/controllers/*`. All `/api/revenue`, `/api/invoices`, `/api/customers` routes are guarded by `src/middlewares/authMiddleware.ts`. Invoice create/update also run `validateRequest(InvoiceSchema)` from `src/middlewares/validateRequest.ts`.
+- Frontend data flow: Server Components call `app/lib/data.ts` → `app/lib/api.ts` (forwards the `jwt` cookie from `next/headers`). Mutations go through Server Actions in `app/lib/actions.ts` (`"use server"`). Auth actions include `authenticate`, `register`, `verifyOtp`, `resendOtp`, and `signOut`.
+- Backend: routes in `src/routes/*` → controllers in `src/controllers/*`. All `/api/revenue`, `/api/invoices`, `/api/customers`, and `/api/auth/me` routes are guarded by `src/middlewares/authMiddleware.ts`. `/api/auth/register`, `/api/auth/login`, `/api/auth/verify-otp`, and `/api/auth/resend-otp` are public. Invoice create/update also run `validateRequest(InvoiceSchema)` from `src/middlewares/validateRequest.ts`.
 - DB access uses the `postgres` (porsager) client from `src/lib/db.ts` with tagged template SQL. Amounts are stored in cents.
 - Auth: `bcryptjs` for passwords, `jsonwebtoken` for the `jwt` httpOnly cookie. Cookie name/max-age come from `shared` (`JWT_COOKIE_NAME`, `COOKIE_MAX_AGE_MS`). Secrets (`JWT_SECRET`, `POSTGRES_URL`, `SERVER_PORT`) are required env vars — fail fast if missing.
 
@@ -33,7 +33,7 @@ Schema is versioned with **node-pg-migrate** (pinned to **v7** — v8 is ESM-onl
 ### Current schema (matches the captured `pg_dump`)
 - Extension `uuid-ossp`; enum `verification_type` (`EMAIL_VERIFICATION`, `PASSWORD_RESET`, `MFA_LOGIN`).
 - `users` (uuid PK, name, email `text` UNIQUE, password, `is_verified` bool default `false`).
-- `verification_tokens` (serial PK, `user_id` uuid FK→users `ON DELETE CASCADE`, hashed_code, type enum, target, expires_at, created_at) — **created but not referenced by app code yet; keep inert**.
+- `verification_tokens` (serial PK, `user_id` uuid FK→users `ON DELETE CASCADE`, hashed_code, type enum, target, expires_at, created_at, `attempts` int default 0) — active; used by OTP email verification flow. `attempts` tracks wrong-code budget.
 - `customers` (uuid PK, name, email, image_url).
 - `invoices` (uuid PK, `customer_id` uuid **with NO foreign key** to customers, amount int, `status` `varchar(255)` — app only uses `'pending' | 'paid'`, date).
 - `revenue` (month `varchar(4)`, revenue int, `UNIQUE(month)` — **no primary key**).
@@ -77,8 +77,11 @@ Useful `pgm` helpers: `addColumn`, `dropColumn`, `renameColumn`, `alterColumn` (
 
 ## Things to know before changing code
 
-- `apps/frontend/proxy.ts` is the Next.js 16 **Proxy** convention (the `middleware` file was renamed to `proxy` in v16). It lives at the app root and exports a named `proxy` function, so it runs automatically for `/dashboard/:path*`, `/login`, and `/register`. It only checks for the `jwt` cookie's presence (no token validation) — the backend `authMiddleware` is the real authorization enforcement. Do not delete/rename it expecting it to be unused.
+- `apps/frontend/proxy.ts` is the Next.js 16 **Proxy** convention (the `middleware` file was renamed to `proxy` in v16). It lives at the app root and exports a named `proxy` function, so it runs automatically for `/dashboard/:path*`, `/login`, `/register`, and `/verify-otp`. It only checks for the `jwt` cookie's presence (no token validation) — the backend `authMiddleware` is the real authorization enforcement. Do not delete/rename it expecting it to be unused.
 - `fetchCurrentUser()` in `app/lib/data.ts` calls `auth/user`, but the backend only exposes `GET /api/auth/me`. Align these before relying on it.
 - Register does not auto-login (`generateToken` is commented out in `registerUser`).
 - Shared zod schemas are zod **v4**; `InvoiceSchema` and `RegisterSchema` are exported from `shared`. `InvoiceSchema` is used by both the frontend action and the backend validator; `RegisterSchema` is used by the `register` server action and the register form.
 - `apps/frontend/app/lib/api.ts` redirects to `/login?session=expired` on `401` or a `404` "User not found" (instead of throwing and crashing the dashboard). This handles stale/invalid JWT cookies that pass `proxy.ts`'s presence-only check. Don't revert it to a plain throw without re-adding a redirect.
+- Login requires `is_verified=true` in the DB. Unverified users get a `403` from `/api/auth/login` and are bounced to `/verify-otp?email=...` by the `authenticate` server action.
+- Register no longer auto-logs in; it redirects to `/verify-otp?email=...`. The `authenticate` action forwards the backend's `Set-Cookie` header to set the JWT on the Next.js response.
+- OTP verification uses the active `verification_tokens` table with an `attempts` column to track wrong-code budget. `MAX_OTP_ATTEMPTS = 5` (backend constant). Exhausted attempts delete the token and return `429`.

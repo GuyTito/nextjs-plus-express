@@ -106,7 +106,7 @@ Run from `apps/backend` (or with `pnpm --filter backend …` from the root):
 
 ### Schema & seed
 
-- Tables: `users` (with `is_verified`), `customers`, `invoices` (`customer_id` has **no** foreign key), `revenue` (`month` is the only unique key — there is **no** primary key), and `verification_tokens` (inert; not used by app code yet). UUIDs are generated with the `uuid-ossp` extension.
+- Tables: `users` (with `is_verified`), `customers`, `invoices` (`customer_id` has **no** foreign key), `revenue` (`month` is the only unique key — there is **no** primary key), and `verification_tokens` (active; used by OTP email verification flow). UUIDs are generated with the `uuid-ossp` extension.
 - Seed data (1 user, 6 customers, 13 invoices, 12 revenue months) is applied by the seed migration. Amounts are stored in **cents**.
 
 After a fresh `pnpm db:migrate`, log in with:
@@ -153,17 +153,20 @@ Browser ──► Next.js (Server Components + Server Actions)
 - Cookie `sameSite` is `lax` in dev and `none` in production; `secure` is set only in production.
 - `authenticate` (server action) posts credentials to the backend, parses the backend's `Set-Cookie` header, and re-sets the cookie on the Next.js response so the browser holds it. Subsequent server-side fetches forward the cookie to the API.
 - Logout clears the cookie on both sides.
+- Login requires `is_verified=true` in the DB. Unverified users get a `403` from `/api/auth/login` and are bounced to `/verify-otp?email=...` by the `authenticate` server action.
+- Register does not auto-login (`generateToken` is intentionally commented out in `registerUser`); new users are redirected to `/verify-otp?email=...`.
+- OTP verification uses the active `verification_tokens` table with an `attempts` column to track wrong-code budget. `MAX_OTP_ATTEMPTS = 5` (backend constant). Exhausted attempts delete the token and return `429`.
 
 ### Proxy / route protection
 
 In Next.js 16 the old `middleware` convention was deprecated and renamed to **Proxy**. `apps/frontend/proxy.ts` is that convention file (placed at the app root, exporting a named `proxy` function), so it **runs automatically** for the paths in its `matcher`:
 
 - `/dashboard/:path*` — protected area.
-- `/login`, `/register` — auth routes.
+- `/login`, `/register`, `/verify-otp` — auth routes.
 
 Logic:
 - Unauthenticated requests to a protected route are redirected to `/login?redirect=<path>` (so the user returns after logging in).
-- Authenticated requests hitting `/login` or `/register` are redirected to `/dashboard`.
+- Authenticated requests hitting `/login`, `/register`, or `/verify-otp` are redirected to `/dashboard`.
 
 The Proxy only reads the `jwt` cookie; it does not contact the backend. Note from the Next.js docs that a Proxy matcher that excludes a path also skips Server Function calls on that path, so authorization should still be verified server-side (the backend `authMiddleware` does this for the API).
 
@@ -172,6 +175,8 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 | POST   | `/api/auth/register`      | —    | Register a user (hashes password)            |
 | POST   | `/api/auth/login`         | —    | Authenticate, set JWT cookie                 |
 | POST   | `/api/auth/logout`        | —    | Clear JWT cookie                             |
+| POST   | `/api/auth/verify-otp`    | —    | Verify email/OTP code                        |
+| POST   | `/api/auth/resend-otp`    | —    | Resend verification code                     |
 | GET    | `/api/auth/me`            | ✅   | Return current user (attached by middleware) |
 | GET    | `/api/revenue`            | ✅   | Monthly revenue rows                         |
 | GET    | `/api/invoices/latest`    | ✅   | 5 latest invoices (joined with customers)    |
@@ -189,7 +194,8 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 
 - `/` — marketing landing page.
 - `/login` — email/password login form (client component using `useActionState`).
-- `/register` — registration form (name, email, password, confirm password) that posts to the backend and redirects to `/login?registered=1` on success; uses the shared `RegisterSchema` for client + server-side validation.
+- `/verify-otp` — email verification form for OTP codes; accepts `?email=` and optional `?type=` query params; unverified users are redirected here from login.
+- `/register` — registration form (name, email, password, confirm password) that posts to the backend and redirects to `/verify-otp?email=...` on success; uses the shared `RegisterSchema` for client + server-side validation.
 - `/dashboard` — overview: summary cards, revenue bar chart, latest invoices. Uses `Suspense` streaming with skeleton fallbacks.
 - `/dashboard/invoices` — searchable, paginated invoice table (6 per page) with create/edit/delete actions.
 - `/dashboard/invoices/create` and `/dashboard/invoices/[id]/edit` — invoice forms (client components using `useActionState`).
@@ -219,7 +225,7 @@ The `shared` package is source-first: edit files in `packages/shared/src` direct
 export * from "./types";
 export * from "./helpers";
 export { z } from "zod";
-export { InvoiceSchema, RegisterSchema } from "./schemas";
+export { InvoiceSchema, RegisterSchema, VerifyOtpSchema, ResendOtpSchema } from "./schemas";
 ```
 
 ```ts
@@ -302,9 +308,9 @@ pnpm lint
 
 ## Notes & Known Gaps
 
-- **`apps/frontend/proxy.ts` is the Next.js 16 Proxy (formerly `middleware`).** It is wired up automatically (it sits at the app root and exports a named `proxy` function) and guards `/dashboard/*`, `/login`, and `/register`. It only checks for the presence of the `jwt` cookie — it does not validate the token — so backend authorization (via `authMiddleware`) remains the real enforcement.
+- **`apps/frontend/proxy.ts` is the Next.js 16 Proxy (formerly `middleware`).** It is wired up automatically (it sits at the app root and exports a named `proxy` function) and guards `/dashboard/*`, `/login`, `/register`, and `/verify-otp`. It only checks for the presence of the `jwt` cookie — it does not validate the token — so backend authorization (via `authMiddleware`) remains the real enforcement.
 - **`fetchCurrentUser()` calls `/auth/user`** in `app/lib/data.ts`, but the backend only exposes `GET /api/auth/me`. That fetch will 404 — align the path (or add the route) before using it.
-- **Register does not auto-login.** `generateToken` is intentionally commented out in `registerUser`, so new users must log in separately.
+- **Register does not auto-login.** `generateToken` is intentionally commented out in `registerUser`, so new users must verify their email and then log in separately.
 - **Initial login:** after a fresh `pnpm db:migrate`, sign in with `user@nextmail.com` / `123456` (seeded user). DB passwords are bcrypt-hashed; `123456` is the seeded demo password.
 - **Stale sessions redirect instead of crashing:** `apps/frontend/app/lib/api.ts` sends unauthenticated/stale requests (backend `401` or a `404` "User not found") to `/login?session=expired`, so an old JWT cookie bounces you to login rather than erroring the dashboard.
 - The revenue endpoint includes an artificial 3-second delay for demo/loading-state purposes.
