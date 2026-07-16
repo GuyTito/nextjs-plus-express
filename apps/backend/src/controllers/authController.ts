@@ -25,7 +25,9 @@ export const loginUser: RequestHandler = async (req, res) => {
   }
 
   if (!user.is_verified) {
-    return res.status(403).json({ message: "Please verify your email before logging in." });
+    return res
+      .status(403)
+      .json({ message: "Please verify your email before logging in." });
   }
 
   generateToken(user.id, res);
@@ -53,8 +55,9 @@ export const registerUser: RequestHandler = async (req, res) => {
       .json({ message: "Name, email and password are required" });
   }
 
-  const existingUserArray = await sql<User[]>
-    `SELECT * FROM users WHERE email=${email}`;
+  const existingUserArray = await sql<
+    User[]
+  >`SELECT * FROM users WHERE email=${email}`;
   const existingUser = existingUserArray[0];
   if (existingUser) {
     return res.status(409).json({ message: "User already exists" });
@@ -120,9 +123,9 @@ export const verifyOTP: RequestHandler = async (req, res) => {
     const next = token.attempts + 1;
     if (next >= MAX_OTP_ATTEMPTS) {
       await sql`DELETE FROM verification_tokens WHERE id=${token.id}`;
-      return res
-        .status(429)
-        .json({ message: "Too many failed attempts. Please request a new code." });
+      return res.status(429).json({
+        message: "Too many failed attempts. Please request a new code.",
+      });
     }
     await sql`UPDATE verification_tokens SET attempts=${next} WHERE id=${token.id}`;
     return res.status(401).json({
@@ -138,7 +141,12 @@ export const verifyOTP: RequestHandler = async (req, res) => {
 
   return res.status(200).json({
     message: "Email verified successfully",
-    user: { id: user.id, name: user.name, email: user.email, is_verified: true },
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      is_verified: true,
+    },
   });
 };
 

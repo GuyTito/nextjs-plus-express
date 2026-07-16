@@ -12,6 +12,76 @@ import { api, API_URL } from "./api";
 import { cookies } from "next/headers";
 import { parseSetCookie } from "cookie";
 
+export type VerifyOtpState = {
+  message?: string | null;
+};
+
+export type ResendOtpState = {
+  message?: string | null;
+};
+
+export async function verifyOtp(
+  prevState: VerifyOtpState,
+  formData: FormData,
+): Promise<VerifyOtpState> {
+  const email = formData.get("email") as string;
+  const code = formData.get("code") as string;
+  const type = formData.get("type") as string;
+
+  try {
+    const response = await fetch(`${API_URL}/auth/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code, type }),
+    });
+
+    if (response.ok) {
+      redirect("/login?verified=1");
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData.message || "Verification failed.";
+    return { message };
+  } catch (error: any) {
+    if (error.message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    console.error("Verify OTP error:", error.message);
+    return { message: error.message || "Failed to verify." };
+  }
+}
+
+export async function resendOtp(
+  prevState: ResendOtpState,
+  formData: FormData,
+): Promise<ResendOtpState> {
+  const email = formData.get("email") as string;
+  const type = formData.get("type") as string;
+
+  try {
+    const response = await fetch(`${API_URL}/auth/resend-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, type }),
+    });
+
+    if (response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return { message: data.message || "Verification code sent." };
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData.message || "Failed to resend code.";
+    return { message };
+  } catch (error: any) {
+    if (error.message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    console.error("Resend OTP error:", error.message);
+    return { message: error.message || "Failed to resend code." };
+  }
+}
+
 export type State = {
   errors?: {
     customerId?: string[];
@@ -89,6 +159,10 @@ export async function authenticate(
 
     // Check if response failed
     if (!response.ok) {
+      if (response.status === 403) {
+        redirect(`/verify-otp?email=${encodeURIComponent(email)}`);
+      }
+
       // Try to read backend error payload, fallback to status text
       const errorData = await response.json().catch(() => ({}));
       const errorMessage =
@@ -197,7 +271,7 @@ export async function register(
     };
   }
 
-  redirect("/login?registered=1");
+  redirect(`/verify-otp?email=${encodeURIComponent(email)}`);
 }
 
 export async function signOut() {
