@@ -6,6 +6,11 @@ import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/generateToken";
 import { generateOTP } from "../lib/generateOTP";
 import { cookieOptions, MAX_OTP_ATTEMPTS } from "../lib/constants";
+import { emailService } from "../lib/email";
+import {
+  emailVerificationTemplate,
+  passwordResetTemplate,
+} from "../lib/email-templates";
 
 export const loginUser: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
@@ -72,17 +77,17 @@ export const registerUser: RequestHandler = async (req, res) => {
   `;
   const newUser = newUserArray[0];
 
-  let otp: string | undefined;
   try {
-    otp = await generateOTP(newUser.id, newUser.email, "EMAIL_VERIFICATION");
+    const otp = await generateOTP(newUser.id, newUser.email, "EMAIL_VERIFICATION");
+    const template = emailVerificationTemplate({ code: otp });
+    await emailService.send(newUser.email, template.subject, template.html, template.text);
   } catch (e) {
-    console.error("Failed to generate OTP", e);
+    console.error("Failed to process OTP", e);
   }
 
   res.status(201).json({
     message: "User registered successfully",
     user: { id: newUser.id, name: newUser.name, email: newUser.email },
-    ...(otp && { otp }),
   });
 };
 
@@ -171,15 +176,18 @@ export const resendOTP: RequestHandler = async (req, res) => {
     WHERE user_id=${user.id} AND type=${type}::verification_type
   `;
 
-  let otp: string | undefined;
   try {
-    otp = await generateOTP(user.id, user.email, type);
+    const otp = await generateOTP(user.id, user.email, type);
+    const template =
+      type === "PASSWORD_RESET"
+        ? passwordResetTemplate({ code: otp })
+        : emailVerificationTemplate({ code: otp });
+    await emailService.send(user.email, template.subject, template.html, template.text);
   } catch (e) {
-    console.error("Failed to generate OTP", e);
+    console.error("Failed to process OTP", e);
   }
 
   return res.status(200).json({
     message: "Verification code sent.",
-    ...(otp && { otp }),
   });
 };

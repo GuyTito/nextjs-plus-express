@@ -97,9 +97,6 @@ export default function VerifyOtpForm({
             {resendState.message}
           </p>
         )}
-        <p className="mt-1 text-center text-xs text-gray-500">
-          Rate limiting is not yet implemented.
-        </p>
       </form>
     </>
   );
