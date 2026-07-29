@@ -21,7 +21,7 @@ pnpm + Turborepo monorepo with three workspace packages. Read the relevant Next.
 - Frontend data flow: Server Components call `app/lib/data.ts` → `app/lib/api.ts` (forwards the `jwt` cookie from `next/headers`). Mutations go through Server Actions in `app/lib/actions.ts` (`"use server"`). Auth actions include `authenticate`, `register`, `verifyOtp`, `resendOtp`, and `signOut`.
 - Backend: routes in `src/routes/*` → controllers in `src/controllers/*`. All `/api/revenue`, `/api/invoices`, `/api/customers`, and `/api/auth/me` routes are guarded by `src/middlewares/authMiddleware.ts`. `/api/auth/register`, `/api/auth/login`, `/api/auth/verify-otp`, and `/api/auth/resend-otp` are public. Invoice create/update also run `validateRequest(InvoiceSchema)` from `src/middlewares/validateRequest.ts`.
 - DB access uses the `postgres` (porsager) client from `src/lib/db.ts` with tagged template SQL. Amounts are stored in cents.
-- Auth: `bcryptjs` for passwords, `jsonwebtoken` for the `jwt` httpOnly cookie. Cookie name/max-age come from `shared` (`JWT_COOKIE_NAME`, `COOKIE_MAX_AGE_MS`). Secrets (`JWT_SECRET`, `POSTGRES_URL`, `SERVER_PORT`) are required env vars — fail fast if missing.
+- Auth: `bcryptjs` for passwords, `jsonwebtoken` for the `jwt` httpOnly cookie. Cookie name/max-age come from `shared` (`JWT_COOKIE_NAME`, `COOKIE_MAX_AGE_MS`). Secrets (`JWT_SECRET`, `POSTGRES_URL`, `SERVER_PORT`, `RESEND_API_KEY`) are required env vars — fail fast if missing.
 
 ## Database & Migrations
 
@@ -75,6 +75,18 @@ Useful `pgm` helpers: `addColumn`, `dropColumn`, `renameColumn`, `alterColumn` (
 - Full wipe from a running DB: run `db:migrate:down` once per applied migration, then `db:migrate` to re-apply.
 - From an empty DB (or after `DROP DATABASE` + recreate): `pnpm --filter backend db:migrate` recreates the full schema + seed.
 
+## Email & OTP Delivery
+
+OTP delivery is handled by a provider-agnostic email abstraction in `apps/backend/src/lib/`:
+
+- **`email.ts`** — `EmailService` interface + `ResendEmailService` implementation (module-level singleton exported as `emailService`). Controllers import the singleton and call `emailService.send(to, subject, html, text?)` without importing any provider SDK.
+- **`email-templates.ts`** — `EmailTemplateFn<T>` type and template functions (`emailVerificationTemplate`, `passwordResetTemplate`). Each is a pure function returning `{ subject, html, text }`. No email logic inside templates.
+- **`constants.ts`** — `RESEND_API_KEY` (fail-fast) and `resendFromEmail` (fallback `noreply@example.com`).
+
+`registerUser` and `resendOTP` both call `generateOTP` → build the template → send email, wrapped in try/catch so a failed email send doesn't block the response (fail-open). The plaintext OTP is **never** returned in API responses.
+
+To swap providers later, implement the same `EmailService` interface and change the singleton instantiation in `email.ts` — no controller changes needed.
+
 ## Things to know before changing code
 
 - `apps/frontend/proxy.ts` is the Next.js 16 **Proxy** convention (the `middleware` file was renamed to `proxy` in v16). It lives at the app root and exports a named `proxy` function, so it runs automatically for `/dashboard/:path*`, `/login`, `/register`, and `/verify-otp`. It only checks for the `jwt` cookie's presence (no token validation) — the backend `authMiddleware` is the real authorization enforcement. Do not delete/rename it expecting it to be unused.
@@ -83,5 +95,5 @@ Useful `pgm` helpers: `addColumn`, `dropColumn`, `renameColumn`, `alterColumn` (
 - Shared zod schemas are zod **v4**; `InvoiceSchema` and `RegisterSchema` are exported from `shared`. `InvoiceSchema` is used by both the frontend action and the backend validator; `RegisterSchema` is used by the `register` server action and the register form.
 - `apps/frontend/app/lib/api.ts` redirects to `/login?session=expired` on `401` or a `404` "User not found" (instead of throwing and crashing the dashboard). This handles stale/invalid JWT cookies that pass `proxy.ts`'s presence-only check. Don't revert it to a plain throw without re-adding a redirect.
 - Login requires `is_verified=true` in the DB. Unverified users get a `403` from `/api/auth/login` and are bounced to `/verify-otp?email=...` by the `authenticate` server action.
-- Register no longer auto-logs in; it redirects to `/verify-otp?email=...`. The `authenticate` action forwards the backend's `Set-Cookie` header to set the JWT on the Next.js response.
+- Register no longer auto-logs in; it redirects to `/verify-otp?email=...`. The `authenticate` action forwards the backend's `Set-Cookie` header to set the JWT on the Next.js response. Register and resend-otp send the OTP via email (Resend by default) instead of returning it in the JSON body.
 - OTP verification uses the active `verification_tokens` table with an `attempts` column to track wrong-code budget. `MAX_OTP_ATTEMPTS = 5` (backend constant). Exhausted attempts delete the token and return `429`.

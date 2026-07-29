@@ -20,13 +20,15 @@ Both apps need a `.env` file (see `.env` files already present in each app for s
 
 **`apps/backend/.env`**
 
-| Variable         | Purpose                                             |
-| ---------------- | --------------------------------------------------- |
-| `SERVER_PORT`    | Port the Express server listens on (required)       |
-| `FRONTEND_URL`   | Allowed CORS origin, e.g. `http://localhost:3002`   |
-| `POSTGRES_URL`   | PostgreSQL connection string (required)             |
-| `JWT_SECRET`     | Secret used to sign JWTs (required)                 |
-| `JWT_EXPIRES_IN` | Token lifetime, e.g. `7d` (optional, defaults `7d`) |
+| Variable              | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `SERVER_PORT`         | Port the Express server listens on (required)                |
+| `FRONTEND_URL`        | Allowed CORS origin, e.g. `http://localhost:3002`            |
+| `POSTGRES_URL`        | PostgreSQL connection string (required)                      |
+| `JWT_SECRET`          | Secret used to sign JWTs (required)                          |
+| `JWT_EXPIRES_IN`      | Token lifetime, e.g. `7d` (optional, defaults `7d`)         |
+| `RESEND_API_KEY`      | API key for Resend email delivery (required)                 |
+| `RESEND_FROM_EMAIL`   | Sender address for transactional emails (optional, default `noreply@example.com`) |
 
 **`apps/frontend/.env`**
 
@@ -70,7 +72,7 @@ The frontend dev server runs on port **3002** (`next dev -p 3002`); the backend 
 │           ├── controllers/      # Request handlers (auth, invoices, revenue, customers)
 │           ├── routes/            # Express routers
 │           ├── middlewares/       # auth + zod request validation
-│           ├── lib/               # db client, JWT generation, cookie/secret constants
+│           ├── lib/               # db client, JWT generation, email service, cookie/secret constants
 │           ├── migrate.ts         # node-pg-migrate runner, called on startup
 │           └── server.ts          # App entry point (runs migrations, then listens)
 ├── packages/
@@ -157,6 +159,16 @@ Browser ──► Next.js (Server Components + Server Actions)
 - Register does not auto-login (`generateToken` is intentionally commented out in `registerUser`); new users are redirected to `/verify-otp?email=...`.
 - OTP verification uses the active `verification_tokens` table with an `attempts` column to track wrong-code budget. `MAX_OTP_ATTEMPTS = 5` (backend constant). Exhausted attempts delete the token and return `429`.
 
+### Email service
+
+OTP delivery is handled by a provider-agnostic email abstraction in `apps/backend/src/lib/`:
+
+- **`email.ts`** — `EmailService` interface + `ResendEmailService` implementation (module-level singleton). Controllers call `emailService.send(to, subject, html, text?)` without importing any provider SDK.
+- **`email-templates.ts`** — Pure template functions (`emailVerificationTemplate`, `passwordResetTemplate`) that return `{ subject, html, text }` from input data. No email logic inside templates.
+- **`constants.ts`** — `RESEND_API_KEY` (fail-fast) and `resendFromEmail` (fallback `noreply@example.com`).
+
+`registerUser` and `resendOTP` both call `generateOTP` → build the template → send email, wrapped in try/catch so a failed email send doesn't block the response (fail-open). The plaintext OTP is **never** returned in API responses.
+
 ### Proxy / route protection
 
 In Next.js 16 the old `middleware` convention was deprecated and renamed to **Proxy**. `apps/frontend/proxy.ts` is that convention file (placed at the app root, exporting a named `proxy` function), so it **runs automatically** for the paths in its `matcher`:
@@ -214,6 +226,7 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 | Migrations | `node-pg-migrate` (schema versioned via SQL migrations)      |
 | Validation | Zod v4 (shared `InvoiceSchema`, `RegisterSchema`)        |
 | Auth       | `jsonwebtoken`, `bcryptjs`, `cookie-parser`, `cors`, `dotenv` |
+| Email      | `Resend` SDK (provider-agnostic `EmailService` interface)      |
 | Misc UI    | `use-debounce` (search input), `cookie` (Set-Cookie parsing)  |
 
 ## How Shared Code Works
