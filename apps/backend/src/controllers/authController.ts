@@ -5,7 +5,7 @@ import { VerifyOtpSchema, ResendOtpSchema } from "shared";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../lib/generateToken";
 import { generateOTP } from "../lib/generateOTP";
-import { cookieOptions, MAX_OTP_ATTEMPTS } from "../lib/constants";
+import { cookieOptions, MAX_OTP_ATTEMPTS, frontendUrl } from "../lib/constants";
 import { emailService } from "../lib/email";
 import {
   emailVerificationTemplate,
@@ -190,4 +190,49 @@ export const resendOTP: RequestHandler = async (req, res) => {
   return res.status(200).json({
     message: "Verification code sent.",
   });
+};
+
+export const googleAuthCallback: RequestHandler = async (req, res) => {
+  const profile = (req as any).googleProfile as
+    | {
+        emails?: { value: string }[];
+        name?: { givenName?: string; familyName?: string };
+        id: string;
+      }
+    | undefined;
+
+  if (!profile) {
+    return res.status(401).json({ message: "Google authentication failed" });
+  }
+
+  const googleEmail = profile.emails?.[0]?.value;
+  const googleId = profile.id;
+
+  if (!googleEmail || !googleId) {
+    return res.status(401).json({ message: "No email returned from Google" });
+  }
+
+  const userArray = await sql<User[]>`SELECT * FROM users WHERE email=${googleEmail}`;
+  let user = userArray[0];
+
+  if (user) {
+    if (!user.google_id) {
+      await sql`UPDATE users SET google_id=${googleId}, is_verified=true WHERE id=${user.id}`;
+      user = { ...user, google_id: googleId, is_verified: true };
+    }
+  } else {
+    const givenName = profile.name?.givenName || "";
+    const familyName = profile.name?.familyName || "";
+    const name = `${givenName} ${familyName}`.trim() || googleEmail;
+    const newUserArray = await sql<User[]>`
+      INSERT INTO users (email, name, password, is_verified, google_id)
+      VALUES (${googleEmail}, ${name}, ${""}, true, ${googleId})
+      RETURNING *
+    `;
+    user = newUserArray[0];
+  }
+
+  generateToken(user.id, res);
+
+  return res.redirect(`${frontendUrl}/dashboard?google=1`);
 };

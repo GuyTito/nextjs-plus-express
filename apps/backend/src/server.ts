@@ -9,9 +9,52 @@ import customerRoutes from "./routes/customerRoutes";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import cookieParser from "cookie-parser";
 import { runMigrations } from "./migrate";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { sql, POSTGRES_URL } from "./lib/db";
+import { generateToken } from "./lib/generateToken";
+import { googleClientId, googleClientSecret, sessionSecret } from "./lib/constants";
+import { type User } from "shared";
 
 export const port = process.env.SERVER_PORT;
 if (!port) throw new Error("SERVER_PORT is not set");
+
+const PGStore = connectPgSimple(session);
+const store = new PGStore({
+  conString: POSTGRES_URL,
+  tableName: "session",
+});
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: googleClientId!,
+      clientSecret: googleClientSecret!,
+      callbackURL: "/api/auth/google/callback",
+      passReqToCallback: true,
+    },
+    async (req, accessToken, refreshToken, profile, done) => {
+      (req as any).googleProfile = profile;
+      return done(null, { id: profile.id } as any);
+    },
+  ),
+);
+
+passport.serializeUser((user: any, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id: string, done) => {
+  try {
+    const userArray = await sql<User[]>`SELECT * FROM users WHERE id=${id}`;
+    const user = userArray[0];
+    done(null, user);
+  } catch (err) {
+    done(err, null);
+  }
+});
 
 const app = express();
 
@@ -24,6 +67,21 @@ app.use(
 app.use(cookieParser());
 app.use(express.json()); // handles json sent thru body
 app.use(express.urlencoded({ extended: true })); // handles forms data from browser
+app.use(
+  session({
+    secret: sessionSecret!,
+    resave: false,
+    saveUninitialized: false,
+    store,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    },
+  }),
+);
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Routes
 app.use("/api/auth", authRoutes);

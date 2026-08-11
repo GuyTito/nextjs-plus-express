@@ -4,9 +4,11 @@ export const secretKey = process.env.JWT_SECRET;
 if (!secretKey) throw new Error("JWT_SECRET environment variable is not set");
 
 export const resendApiKey = process.env.RESEND_API_KEY;
-if (!resendApiKey) throw new Error("RESEND_API_KEY environment variable is not set");
+if (!resendApiKey)
+  throw new Error("RESEND_API_KEY environment variable is not set");
 
-export const resendFromEmail = process.env.RESEND_FROM_EMAIL || "noreply@example.com";
+export const resendFromEmail =
+  process.env.RESEND_FROM_EMAIL || "noreply@example.com";
 
 export const cookieOptions = {
   httpOnly: true,
@@ -16,3 +18,18 @@ export const cookieOptions = {
     | "lax",
   path: "/",
 };
+
+export const frontendUrl = process.env.FRONTEND_URL;
+if (!frontendUrl) throw new Error("frontend URL variable is not set.");
+
+export const googleClientId = process.env.GOOGLE_CLIENT_ID;
+if (!googleClientId)
+  throw new Error("GOOGLE_CLIENT_ID environment variable is not set");
+
+export const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+if (!googleClientSecret)
+  throw new Error("GOOGLE_CLIENT_SECRET environment variable is not set");
+
+export const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret)
+  throw new Error("SESSION_SECRET environment variable is not set");

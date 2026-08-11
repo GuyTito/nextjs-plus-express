@@ -8,6 +8,7 @@ export type User = {
   email: string;
   password: string;
   is_verified?: boolean;
+  google_id?: string;
 };
 
 export type Customer = {
