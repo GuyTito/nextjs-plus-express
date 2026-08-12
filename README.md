@@ -27,15 +27,19 @@ Both apps need a `.env` file (see `.env` files already present in each app for s
 | `POSTGRES_URL`        | PostgreSQL connection string (required)                      |
 | `JWT_SECRET`          | Secret used to sign JWTs (required)                          |
 | `JWT_EXPIRES_IN`      | Token lifetime, e.g. `7d` (optional, defaults `7d`)         |
-| `RESEND_API_KEY`      | API key for Resend email delivery (required)                 |
+| `RESEND_API_KEY`      | API key for Resend email delivery (required)                          |
 | `RESEND_FROM_EMAIL`   | Sender address for transactional emails (optional, default `noreply@example.com`) |
+| `GOOGLE_CLIENT_ID`    | Google OAuth 2.0 Client ID (required for Google sign-in)             |
+| `GOOGLE_CLIENT_SECRET`| Google OAuth 2.0 Client Secret (required for Google sign-in)         |
+| `SESSION_SECRET`      | Secret used to sign express-session cookies (required for Google sign-in) |
 
 **`apps/frontend/.env`**
 
 | Variable   | Purpose                                                       |
 | ---------- | ------------------------------------------------------------- |
-| `API_URL`  | Backend base URL, e.g. `http://localhost:3000` (required)     |
+| `API_URL`  | Backend base URL, e.g. `http://localhost:4000/api` (required) |
 | `NODE_ENV` | `production` toggles `secure`/`sameSite=none` cookie behavior |
+| `NEXT_PUBLIC_BACKEND_URL` | Backend base URL exposed to the browser, used for the Google OAuth redirect (required) |
 
 ## Scripts
 
@@ -108,7 +112,7 @@ Run from `apps/backend` (or with `pnpm --filter backend …` from the root):
 
 ### Schema & seed
 
-- Tables: `users` (with `is_verified`), `customers`, `invoices` (`customer_id` has **no** foreign key), `revenue` (`month` is the only unique key — there is **no** primary key), and `verification_tokens` (active; used by OTP email verification flow). UUIDs are generated with the `uuid-ossp` extension.
+- Tables: `users` (with `is_verified` and optional `google_id` for Google OAuth linking), `customers`, `invoices` (`customer_id` has **no** foreign key), `revenue` (`month` is the only unique key — there is **no** primary key), and `verification_tokens` (active; used by OTP email verification flow). UUIDs are generated with the `uuid-ossp` extension.
 - Seed data (1 user, 6 customers, 13 invoices, 12 revenue months) is applied by the seed migration. Amounts are stored in **cents**.
 
 After a fresh `pnpm db:migrate`, log in with:
@@ -158,6 +162,7 @@ Browser ──► Next.js (Server Components + Server Actions)
 - Login requires `is_verified=true` in the DB. Unverified users get a `403` from `/api/auth/login` and are bounced to `/verify-otp?email=...` by the `authenticate` server action.
 - Register does not auto-login (`generateToken` is intentionally commented out in `registerUser`); new users are redirected to `/verify-otp?email=...`.
 - OTP verification uses the active `verification_tokens` table with an `attempts` column to track wrong-code budget. `MAX_OTP_ATTEMPTS = 5` (backend constant). Exhausted attempts delete the token and return `429`.
+- Google OAuth is handled by Passport.js. On successful Google sign-in, the backend either links to an existing user by email or creates a new verified user, then issues the same JWT cookie used by email/password auth. The frontend login page includes a "Sign in with Google" button that redirects to `/api/auth/google`.
 
 ### Email service
 
@@ -189,6 +194,8 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 | POST   | `/api/auth/logout`        | —    | Clear JWT cookie                             |
 | POST   | `/api/auth/verify-otp`    | —    | Verify email/OTP code                        |
 | POST   | `/api/auth/resend-otp`    | —    | Resend verification code                     |
+| GET    | `/api/auth/google`        | —    | Redirect to Google OAuth consent screen       |
+| GET    | `/api/auth/google/callback` | —  | Google OAuth callback; issues JWT and redirects to `/dashboard?google=1` |
 | GET    | `/api/auth/me`            | ✅   | Return current user (attached by middleware) |
 | GET    | `/api/revenue`            | ✅   | Monthly revenue rows                         |
 | GET    | `/api/invoices/latest`    | ✅   | 5 latest invoices (joined with customers)    |
@@ -225,7 +232,7 @@ The Proxy only reads the `jwt` cookie; it does not contact the backend. Note fro
 | Database   | PostgreSQL via the `postgres` (porsager) client               |
 | Migrations | `node-pg-migrate` (schema versioned via SQL migrations)      |
 | Validation | Zod v4 (shared `InvoiceSchema`, `RegisterSchema`)        |
-| Auth       | `jsonwebtoken`, `bcryptjs`, `cookie-parser`, `cors`, `dotenv` |
+| Auth       | `jsonwebtoken`, `bcryptjs`, `cookie-parser`, `cors`, `dotenv`, `passport`, `passport-google-oauth20`, `express-session`, `connect-pg-simple` |
 | Email      | `Resend` SDK (provider-agnostic `EmailService` interface)      |
 | Misc UI    | `use-debounce` (search input), `cookie` (Set-Cookie parsing)  |
 
@@ -325,6 +332,7 @@ pnpm lint
 - **`fetchCurrentUser()` calls `/auth/user`** in `app/lib/data.ts`, but the backend only exposes `GET /api/auth/me`. That fetch will 404 — align the path (or add the route) before using it.
 - **Register does not auto-login.** `generateToken` is intentionally commented out in `registerUser`, so new users must verify their email and then log in separately.
 - **Initial login:** after a fresh `pnpm db:migrate`, sign in with `user@nextmail.com` / `123456` (seeded user). DB passwords are bcrypt-hashed; `123456` is the seeded demo password.
+- **Google sign-in:** the login page includes a "Sign in with Google" button. On first Google sign-in with an email that already exists in the DB, the account is linked (`google_id` is set on the existing user). On first sign-in with a new email, a new verified user is created. The backend redirects to `/dashboard?google=1` after successful Google auth.
 - **Stale sessions redirect instead of crashing:** `apps/frontend/app/lib/api.ts` sends unauthenticated/stale requests (backend `401` or a `404` "User not found") to `/login?session=expired`, so an old JWT cookie bounces you to login rather than erroring the dashboard.
 - The revenue endpoint includes an artificial 3-second delay for demo/loading-state purposes.
 - Several UI blocks contain commented "Uncomment in Chapter X" markers left over from the original course scaffolding.

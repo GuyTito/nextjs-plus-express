@@ -87,8 +87,19 @@ OTP delivery is handled by a provider-agnostic email abstraction in `apps/backen
 
 To swap providers later, implement the same `EmailService` interface and change the singleton instantiation in `email.ts` — no controller changes needed.
 
+## Google OAuth (Passport.js)
+
+- Google sign-in is handled by Passport.js (`passport`, `passport-google-oauth20`) with `express-session` + `connect-pg-simple` for PostgreSQL-backed session storage.
+- Routes: `GET /api/auth/google` (initiates OAuth) and `GET /api/auth/google/callback` (handles Google's response).
+- `googleAuthCallback` in `src/controllers/authController.ts` links an existing user by email or creates a new verified user, then issues the JWT cookie and redirects to `FRONTEND_URL/dashboard?google=1`.
+- The `users` table has a `google_id varchar(255) UNIQUE` column (added via migration). Email/password users have `google_id = NULL`.
+- Required env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`. `FRONTEND_URL` is reused for the post-login redirect.
+- The frontend login page (`apps/frontend/app/ui/login-form.tsx`) has a "Sign in with Google" button linking to `/api/auth/google`.
+- No changes to `proxy.ts`, `api.ts`, `authMiddleware`, or existing auth actions are needed — Google sign-in uses the same JWT cookie.
+
 ## Things to know before changing code
 
+- **Never edit `.env` files without explicit user permission.** If an env var is needed, ask the user to add it.
 - `apps/frontend/proxy.ts` is the Next.js 16 **Proxy** convention (the `middleware` file was renamed to `proxy` in v16). It lives at the app root and exports a named `proxy` function, so it runs automatically for `/dashboard/:path*`, `/login`, `/register`, and `/verify-otp`. It only checks for the `jwt` cookie's presence (no token validation) — the backend `authMiddleware` is the real authorization enforcement. Do not delete/rename it expecting it to be unused.
 - `fetchCurrentUser()` in `app/lib/data.ts` calls `auth/user`, but the backend only exposes `GET /api/auth/me`. Align these before relying on it.
 - Register does not auto-login (`generateToken` is commented out in `registerUser`).
