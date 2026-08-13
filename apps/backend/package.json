@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --watch ../../packages/shared/src src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "node-pg-migrate up --config node-pg-migrate.config.js --database-url-var POSTGRES_URL",
     "db:migrate:down": "node-pg-migrate down --config node-pg-migrate.config.js --database-url-var POSTGRES_URL"
