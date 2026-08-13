@@ -14,12 +14,17 @@ import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { sql, POSTGRES_URL } from "./lib/db";
-import { generateToken } from "./lib/generateToken";
-import { googleClientId, googleClientSecret, sessionSecret } from "./lib/constants";
+import {
+  googleClientId,
+  googleClientSecret,
+  sessionSecret,
+} from "./lib/constants";
 import { type User } from "shared";
 
-export const port = process.env.SERVER_PORT;
-if (!port) throw new Error("SERVER_PORT is not set");
+export const port = process.env.SERVER_PORT || process.env.PORT || "4000";
+if (!process.env.SERVER_PORT && !process.env.PORT) {
+  console.warn("SERVER_PORT or PORT not set, defaulting to 4000");
+}
 
 const PGStore = connectPgSimple(session);
 const store = new PGStore({
