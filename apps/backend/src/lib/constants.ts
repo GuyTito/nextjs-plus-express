@@ -19,8 +19,7 @@ export const cookieOptions = {
   path: "/",
 };
 
-export const frontendUrl = process.env.FRONTEND_URL;
-if (!frontendUrl) throw new Error("frontend URL variable is not set.");
+export const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
 
 export const googleClientId = process.env.GOOGLE_CLIENT_ID;
 if (!googleClientId)
