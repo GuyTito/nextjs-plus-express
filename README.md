@@ -326,6 +326,61 @@ pnpm check-types
 pnpm lint
 ```
 
+## Deployment
+
+### Turbo env var forwarding (important)
+
+`turbo.json`'s `build.env` array is the **only** mechanism Turborepo uses to forward environment variables to a task. This matters for **Next.js** because it bakes `NEXT_PUBLIC_*` and any `process.env.*` references into the client bundle at build time. If a variable isn't listed there, the build silently substitutes `undefined` — and the deployed site breaks.
+
+```json
+// turbo.json — the build task must declare every Next.js-injected env var
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["API_URL", "NEXT_PUBLIC_BACKEND_URL"]
+    }
+  }
+}
+```
+
+**Express does not have this restriction.** `ts-node-dev` (dev) and `tsx` (start) both inherit `process.env` from the shell at runtime, and `dotenv` loads `.env` files from disk on startup — no build-time baking required. So the backend never needs entries in `build.env`.
+
+Before deploying, verify that every variable referenced in the Next.js app is present in `turbo.json`'s `build.env` (and configured as an environment variable in your hosting platform).
+
+### Vercel (frontend)
+
+Import the `apps/frontend` directory as a Vercel project. Set these environment variables in the Vercel dashboard:
+
+| Variable                  | Value                                  |
+| ------------------------- | -------------------------------------- |
+| `API_URL`                 | Backend URL, e.g. `https://api.…/api`  |
+| `NEXT_PUBLIC_BACKEND_URL` | Same as `API_URL` (used for browser redirects) |
+
+Vercel runs `turbo run build` automatically for monorepos. The `turbo.json` `env` array ensures the variables above are forwarded during the build step. Set `NODE_ENV=production` (Vercel does this automatically) so cookies get the `secure` + `sameSite=none` attributes.
+
+### Render (backend)
+
+Deploy the `apps/backend` directory as a Web Service. Set these environment variables in the Render dashboard:
+
+| Variable              | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `SERVER_PORT`         | Render provides this automatically via `$PORT`               |
+| `FRONTEND_URL`        | Your Vercel frontend URL, e.g. `https://dashboard.vercel.app` |
+| `POSTGRES_URL`        | Render provides this automatically when you attach a Postgres plan |
+| `JWT_SECRET`          | A strong random string (required)                            |
+| `RESEND_API_KEY`      | Your Resend API key (required)                               |
+| `RESEND_FROM_EMAIL`   | Sender address (optional, defaults to `noreply@example.com`) |
+| `GOOGLE_CLIENT_ID`    | Google OAuth 2.0 Client ID (required for Google sign-in)     |
+| `GOOGLE_CLIENT_SECRET`| Google OAuth 2.0 Client Secret (required for Google sign-in) |
+| `SESSION_SECRET`      | A strong random string (required for Google sign-in)         |
+
+Build command: `pnpm install && pnpm build`  
+Start command: `pnpm start` (runs `tsx src/server.ts`)
+
+Set `RUN_MIGRATIONS=false` in Render production so migrations never auto-run — run them manually via the Render shell or a one-off job instead. Migrations must run against the Postgres plan before the first request hits.
+
 ## Notes & Known Gaps
 
 - **`apps/frontend/proxy.ts` is the Next.js 16 Proxy (formerly `middleware`).** It is wired up automatically (it sits at the app root and exports a named `proxy` function) and guards `/dashboard/*`, `/login`, `/register`, and `/verify-otp`. It only checks for the presence of the `jwt` cookie — it does not validate the token — so backend authorization (via `authMiddleware`) remains the real enforcement.
