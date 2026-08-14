@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "ts-node-dev --watch ../../packages/shared/src src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "tsx src/server.ts",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "node-pg-migrate up --config node-pg-migrate.config.js --database-url-var POSTGRES_URL",
     "db:migrate:down": "node-pg-migrate down --config node-pg-migrate.config.js --database-url-var POSTGRES_URL"
@@ -23,7 +23,8 @@
     "passport-google-oauth20": "^2.0.0",
     "postgres": "^3.4.9",
     "resend": "^6.18.0",
-    "shared": "workspace:*"
+    "shared": "workspace:*",
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",
