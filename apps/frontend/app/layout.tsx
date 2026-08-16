@@ -1,6 +1,7 @@
 import "./globals.css";
 import { inter } from "./ui/fonts";
 import { Metadata } from "next";
+import { ToastListener } from "./ui/toast-listener";
 
 export const metadata: Metadata = {
   title: {
@@ -18,7 +19,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased`}>{children}</body>
+      <body className={`${inter.className} antialiased`}>
+        {children}
+        <ToastListener />
+      </body>
     </html>
   );
 }

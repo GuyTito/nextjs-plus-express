@@ -104,13 +104,13 @@ export async function createInvoice(prevState: State, formData: FormData) {
     };
   }
   const { customerId, amount, status } = validatedFields.data;
-  await api(`invoices`, {
+  const response = await api(`invoices`, {
     method: "POST",
     body: JSON.stringify({ customerId, amount, status }),
   });
 
   revalidatePath("/dashboard/invoices");
-  redirect("/dashboard/invoices");
+  redirect(`/dashboard/invoices?toast=${response.message}`);
 }
 
 export async function updateInvoice(
@@ -131,13 +131,13 @@ export async function updateInvoice(
   }
   const { customerId, amount, status } = validatedFields.data;
 
-  await api(`invoices/${id}`, {
+  const response = await api(`invoices/${id}`, {
     method: "PUT",
     body: JSON.stringify({ customerId, amount, status }),
   });
 
   revalidatePath("/dashboard/invoices");
-  redirect("/dashboard/invoices");
+  redirect(`/dashboard/invoices?toast=${response.message}`);
 }
 
 // Cookie forwarding is been done here is because the server side of the nextjs acts a middle man between the client(user browser) and the express server.
@@ -271,7 +271,9 @@ export async function register(
     };
   }
 
-  redirect(`/verify-otp?email=${encodeURIComponent(email)}`);
+  redirect(
+    `/verify-otp?email=${encodeURIComponent(email)}&toast=Account+created+successfully`,
+  );
 }
 
 export async function signOut() {
@@ -282,7 +284,17 @@ export async function signOut() {
 }
 
 export async function deleteInvoice(id: string) {
-  await api(`invoices/${id}`, { method: "DELETE" });
-
-  revalidatePath("/dashboard/invoices");
+  try {
+    const response = await api(`invoices/${id}`, { method: "DELETE" });
+    revalidatePath("/dashboard/invoices");
+    redirect(`/dashboard/invoices?toast=${response.message}`);
+  } catch (error: any) {
+    if (error.message === "NEXT_REDIRECT") {
+      throw error;
+    }
+    revalidatePath("/dashboard/invoices");
+    redirect(
+      `/dashboard/invoices?toast=${encodeURIComponent(error.message)}&toastType=error`,
+    );
+  }
 }
