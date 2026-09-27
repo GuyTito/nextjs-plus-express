@@ -1,6 +1,32 @@
 # Next.js Dashboard + Express Monorepo
 
-A full-stack TypeScript monorepo: a **Next.js 16** dashboard frontend backed by an **Express** API server, with a shared package for code used by both apps. It is a teaching/demo project (derived from the Vercel Next.js Learn "Dashboard" course) extended with a real Express + PostgreSQL backend and JWT cookie authentication.
+A full-stack TypeScript monorepo: a **Next.js 16** dashboard frontend backed by an **Express** API server, with a shared package for code used by both apps. I extended a Next.js dashboard architecture into a full-stack TypeScript monorepo with an independent Express API, PostgreSQL, authentication, OAuth, validation, migrations and shared types.
+
+
+                    ┌──────────────────────┐
+                    │      Next.js 16      │
+                    │   App Router / UI    │
+                    └──────────┬───────────┘
+                               │
+                     JWT Cookie / API
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │    Express API       │
+                    │ Controllers / Routes │
+                    │ Auth / Validation    │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │     PostgreSQL       │
+                    │  Migrations / Data   │
+                    └──────────────────────┘
+
+                    ┌──────────────────────┐
+                    │   Shared Package     │
+                    │ Types / Zod Schemas  │
+                    └──────────────────────┘
 
 ## Prerequisites
 
